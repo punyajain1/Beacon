@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FinPilot - Minimalist Portfolio Advisor",
-  description: "AI Financial Advisor powered by Groq and FinBERT",
+  title: "Beacon | Premium Dashboard",
+  description: "A minimalistic dark-themed dashboard for Beacon.",
 };
 
 export default function RootLayout({
@@ -15,8 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="dark">
+      <body className={`${inter.className} min-h-screen bg-background text-foreground antialiased selection:bg-primary selection:text-primary-foreground`}>
         {children}
       </body>
     </html>
