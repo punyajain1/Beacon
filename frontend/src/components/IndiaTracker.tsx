@@ -93,7 +93,7 @@ export function IndiaTracker({ className }: { className?: string }) {
               <div className="text-sm text-muted-foreground">No data available for {symbol}. Try BTC, ETH, SOL.</div>
             ) : (
               <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-secondary/10 border border-border rounded-lg p-4 flex flex-col gap-1">
                     <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Global Price (Implied)</span>
                     <span className="text-xl font-black text-foreground">₹{premium.impliedInrPrice.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
@@ -169,7 +169,7 @@ export function IndiaTracker({ className }: { className?: string }) {
           </div>
 
           <form onSubmit={handleTaxPreview} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-muted-foreground font-bold uppercase">Buy Price (₹)</label>
                 <input 

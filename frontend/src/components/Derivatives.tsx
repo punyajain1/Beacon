@@ -56,18 +56,18 @@ export function Derivatives({ className }: { className?: string }) {
         <p className="text-sm text-muted-foreground">Monitor futures funding rates, open interest, and liquidation risks.</p>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <input 
           type="text" 
           value={symbol}
           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
           placeholder="Asset Symbol (e.g. BTC)"
-          className="bg-secondary/20 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary w-48 uppercase"
+          className="bg-secondary/20 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary w-full sm:w-48 uppercase"
         />
         <button 
           onClick={fetchDerivatives}
           disabled={loading}
-          className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           {loading ? 'Fetching...' : 'Analyze Market'}
         </button>
@@ -81,7 +81,7 @@ export function Derivatives({ className }: { className?: string }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Liquidation Heat Warning */}
-          <div className={cn("col-span-1 lg:col-span-3 rounded-xl p-6 border flex items-center justify-between", getHeatColor(data.liquidationHeat))}>
+          <div className={cn("col-span-1 lg:col-span-3 rounded-xl p-6 border flex flex-col md:flex-row items-start md:items-center justify-between gap-4", getHeatColor(data.liquidationHeat))}>
             <div className="flex items-center gap-4">
               <Flame size={32} className={cn("animate-pulse", data.liquidationHeat === 'EXTREME' || data.liquidationHeat === 'HIGH' ? 'block' : 'hidden')} />
               <div className="flex flex-col">
@@ -89,7 +89,7 @@ export function Derivatives({ className }: { className?: string }) {
                 <span className="text-2xl font-black">{data.liquidationHeat} RISK</span>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-left md:text-right">
               <div className="text-sm opacity-90">
                 {data.liquidationHeat === 'EXTREME' 
                   ? `Warning: Extreme leverage detected on the ${data.heatDirection} side. High risk of a squeeze.`

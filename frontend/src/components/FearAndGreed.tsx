@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
+import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis, XAxis } from 'recharts';
 import { Activity } from 'lucide-react';
 
 export function FearAndGreed({ className }: { className?: string }) {
@@ -39,42 +39,70 @@ export function FearAndGreed({ className }: { className?: string }) {
   const currentVal = parseInt(current.value, 10);
   const color = getGaugeColor(currentVal);
 
+  const cx = 80;
+  const cy = 80;
+  const r = 70;
+  const circumference = Math.PI * r;
+  const segmentLength = circumference / 5;
+  const gap = 4;
+  const dashLength = segmentLength - gap;
+  
+  const colors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'];
+  const activeIdx = Math.min(Math.floor(currentVal / 20), 4);
+  
+  const angle = 180 - (currentVal / 100) * 180;
+  const rad = (angle * Math.PI) / 180;
+  const markerX = cx + r * Math.cos(rad);
+  const markerY = cy - r * Math.sin(rad);
+
   return (
-    <div className={cn("flex flex-col md:flex-row gap-8 p-6 rounded-xl bg-card border border-border w-full", className)}>
+    <div className={cn("flex flex-col gap-8 p-6 rounded-xl bg-card border border-border w-full", className)}>
       {/* Gauge / Current value */}
-      <div className="flex flex-col items-center justify-center min-w-[200px]">
-        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-6 text-center">
+      <div className="flex flex-col items-center justify-center min-w-[200px] w-full max-w-[240px] mx-auto">
+        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2 text-center">
           Fear & Greed Index
         </div>
         
-        <div className="relative w-32 h-32 flex items-center justify-center">
+        <div className="relative w-full aspect-[2/1] flex items-end justify-center overflow-visible mt-2">
           {/* Subtle Outer Glow */}
-          <div className="absolute inset-0 rounded-full blur-xl opacity-20" style={{ backgroundColor: color }}></div>
+          <div className="absolute bottom-0 w-3/4 h-3/4 rounded-t-full blur-xl opacity-10" style={{ backgroundColor: color }}></div>
           
-          {/* Sleek thin border ring */}
-          <div className="absolute inset-0 rounded-full border border-white/5"></div>
-          
-          {/* Colored arc simulation */}
-          <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+          <svg className="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 160 90" preserveAspectRatio="xMidYMax meet">
+            {/* 5 Segments */}
+            {colors.map((c, i) => (
+              <path 
+                key={i}
+                d={`M 10 80 A 70 70 0 0 1 150 80`}
+                fill="none" 
+                stroke={c} 
+                strokeWidth="6" 
+                strokeLinecap="round" 
+                strokeDasharray={`${dashLength} 1000`}
+                strokeDashoffset={-(i * segmentLength)}
+                opacity={i === activeIdx ? 1 : 0.2}
+                className="transition-opacity duration-500"
+              />
+            ))}
+            
+            {/* Marker */}
             <circle 
-              cx="64" cy="64" r="62" 
-              fill="none" 
-              stroke={color} 
-              strokeWidth="4" 
-              strokeDasharray={`${(currentVal / 100) * 389} 389`}
-              className="transition-all duration-1000 ease-out"
-              strokeLinecap="round"
+              cx={markerX} 
+              cy={markerY} 
+              r="4" 
+              fill="#fff" 
+              stroke={color}
+              strokeWidth="2"
+              className="drop-shadow-md transition-all duration-1000 ease-out"
             />
-          </svg>
 
-          <div className="flex flex-col items-center justify-center z-10">
-            <span className="text-5xl font-black tracking-tighter" style={{ color: color, textShadow: `0 0 20px ${color}40` }}>
+            {/* Text embedded in SVG for perfect centering */}
+            <text x="80" y="65" textAnchor="middle" fontSize="36" fontWeight="900" fill={color} style={{ textShadow: `0 0 20px ${color}40` }}>
               {currentVal}
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mt-1 text-center">
+            </text>
+            <text x="80" y="80" textAnchor="middle" fontSize="9" fontWeight="bold" fill="currentColor" className="text-muted-foreground uppercase tracking-wider">
               {current.value_classification}
-            </span>
-          </div>
+            </text>
+          </svg>
         </div>
       </div>
 
@@ -93,9 +121,10 @@ export function FearAndGreed({ className }: { className?: string }) {
                   <stop offset="95%" stopColor={color} stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <YAxis hide domain={[0, 100]} />
+              <XAxis dataKey="date" hide={false} stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} minTickGap={20} />
+              <YAxis hide={false} domain={[0, 100]} stroke="rgba(255,255,255,0.2)" fontSize={10} tickLine={false} axisLine={false} width={25} />
               <Tooltip 
-                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                contentStyle={{ backgroundColor: '#111111', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}
                 itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}
                 labelStyle={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', textTransform: 'uppercase' }}
                 labelFormatter={(label, payload) => {
@@ -112,6 +141,7 @@ export function FearAndGreed({ className }: { className?: string }) {
                 strokeWidth={2}
                 fillOpacity={1} 
                 fill="url(#colorValue)" 
+                animationDuration={1500}
               />
             </AreaChart>
           </ResponsiveContainer>

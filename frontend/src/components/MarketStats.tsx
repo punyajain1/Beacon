@@ -26,43 +26,30 @@ export function MarketStats({ className }: { className?: string }) {
   }, []);
 
   return (
-    <div className={cn('grid grid-cols-1 md:grid-cols-3 gap-6', className)}>
-      <div className="flex flex-col rounded-xl bg-card p-6 border border-border">
-        <div className="flex items-center gap-3 mb-4 text-muted-foreground">
-          <DollarSign size={16} className="text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Total Market Cap</span>
-        </div>
-        <div className="text-2xl font-bold text-foreground tracking-tight">
-          {stats?.totalMarketCap ? formatLargeNumber(stats.totalMarketCap) : '---'}
-        </div>
-        <div className={cn("text-xs mt-3 flex items-center gap-1.5 font-bold tracking-wider", stats?.mcapChange >= 0 ? 'text-green-500' : 'text-red-500')}>
-          <TrendingUp size={14} className={stats?.mcapChange < 0 ? "rotate-180" : ""} /> 
-          {stats?.mcapChange > 0 ? '+' : ''}{stats?.mcapChange ? stats.mcapChange : '---'}%
-        </div>
+    <div className={cn('flex flex-col md:flex-row items-start md:items-center gap-6 rounded-xl bg-card p-4 border border-border text-sm overflow-x-auto', className)}>
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Market Cap</span>
+        <span className="font-semibold tabular-nums text-foreground">{stats?.totalMarketCap ? formatLargeNumber(stats.totalMarketCap) : '---'}</span>
+        <span className={cn("text-[10px] font-bold tabular-nums", stats?.mcapChange >= 0 ? 'text-green-500' : 'text-destructive')}>
+          {stats?.mcapChange > 0 ? '▲' : '▼'} {Math.abs(stats?.mcapChange || 0)}%
+        </span>
       </div>
 
-      <div className="flex flex-col rounded-xl bg-card p-6 border border-border">
-        <div className="flex items-center gap-3 mb-4 text-muted-foreground">
-          <Activity size={16} className="text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">24h Global Volume</span>
-        </div>
-        <div className="text-2xl font-bold text-foreground tracking-tight">
-          {stats?.totalVolume24h ? formatLargeNumber(stats.totalVolume24h) : '---'}
-        </div>
-        <div className={cn("text-xs mt-3 flex items-center gap-1.5 font-bold tracking-wider", stats?.volumeChange >= 0 ? 'text-green-500' : 'text-red-500')}>
-          <Activity size={14} /> 
-          {stats?.volumeChange > 0 ? '+' : ''}{stats?.volumeChange ? stats.volumeChange : '---'}%
-        </div>
+      <div className="hidden md:block w-px h-4 bg-border"></div>
+
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">24h Volume</span>
+        <span className="font-semibold tabular-nums text-foreground">{stats?.totalVolume24h ? formatLargeNumber(stats.totalVolume24h) : '---'}</span>
+        <span className={cn("text-[10px] font-bold tabular-nums", stats?.volumeChange >= 0 ? 'text-green-500' : 'text-destructive')}>
+          {stats?.volumeChange > 0 ? '▲' : '▼'} {Math.abs(stats?.volumeChange || 0)}%
+        </span>
       </div>
 
-      <div className="flex flex-col rounded-xl bg-card p-6 border border-border">
-        <div className="flex items-center gap-3 mb-4 text-muted-foreground">
-          <TrendingUp size={16} className="text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">BTC Dominance</span>
-        </div>
-        <div className="text-2xl font-bold text-foreground tracking-tight">
-          {stats?.btcDominance ? `${stats.btcDominance}%` : '---'}
-        </div>
+      <div className="hidden md:block w-px h-4 bg-border"></div>
+
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">BTC Dominance</span>
+        <span className="font-semibold tabular-nums text-foreground">{stats?.btcDominance ? `${stats.btcDominance}%` : '---'}</span>
       </div>
     </div>
   );

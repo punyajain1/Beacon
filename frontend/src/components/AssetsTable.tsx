@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency, formatNumber } from '@/lib/utils';
 import { Plus, RefreshCcw } from 'lucide-react';
 import { AssetModals } from './AssetModals';
 
@@ -26,16 +26,16 @@ export function AssetsTable({ className }: { className?: string }) {
   return (
     <>
       <div className={cn('flex flex-col rounded-xl bg-card p-6 border border-border', className)}>
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
           <div>
             <h2 className="text-lg font-bold text-foreground">Assets Portfolio</h2>
-            <p className="text-xs text-muted-foreground mt-1 tracking-wide">Total Value: ${totalValue.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1 tracking-wide">Total Value: {formatCurrency(totalValue)}</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setModalState({ type: 'sync' })} className="flex items-center gap-1 bg-secondary text-foreground px-4 py-2 rounded-full text-sm font-medium hover:bg-secondary/80 transition-colors">
+          <div className="flex gap-2 w-full md:w-auto">
+            <button onClick={() => setModalState({ type: 'sync' })} className="flex-1 md:flex-none justify-center flex items-center gap-1 bg-secondary text-foreground px-4 py-2 rounded-full text-sm font-medium hover:bg-secondary/80 transition-colors">
               <RefreshCcw size={16} /> Sync Wallet
             </button>
-            <button onClick={() => setModalState({ type: 'add' })} className="flex items-center gap-1 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
+            <button onClick={() => setModalState({ type: 'add' })} className="flex-1 md:flex-none justify-center flex items-center gap-1 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
               <Plus size={16} /> Add Asset
             </button>
           </div>
@@ -62,24 +62,30 @@ export function AssetsTable({ className }: { className?: string }) {
                 </tr>
               ) : (
                 assets.map((asset, i) => (
-                  <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-secondary/20 transition-colors">
+                  <tr key={i} className="group border-b border-border/50 last:border-0 hover:bg-secondary/20 transition-colors">
                     <td className="py-4 px-2 font-bold text-foreground flex items-center gap-2">
                       {asset.symbol}
                       <span className="text-[9px] px-1.5 py-0.5 bg-secondary text-muted-foreground rounded uppercase tracking-wider">{asset.assetName}</span>
                     </td>
                     <td className="py-4 px-2 font-medium">{asset.amount}</td>
-                    <td className="py-4 px-2 font-medium">${asset.currentPrice?.toFixed(2) || '---'}</td>
-                    <td className="py-4 px-2 font-medium">${asset.totalValue?.toFixed(2) || '---'}</td>
-                    <td className={cn('py-4 px-2 font-medium', asset.profitLossPercentage >= 0 ? 'text-green-500' : 'text-red-500')}>
-                      {asset.profitLossPercentage >= 0 ? '+' : ''}{asset.profitLossPercentage?.toFixed(2)}%
+                    <td className="py-4 px-2 font-medium">{asset.currentPrice ? formatCurrency(asset.currentPrice) : '---'}</td>
+                    <td className="py-4 px-2 font-medium">{asset.totalValue ? formatCurrency(asset.totalValue) : '---'}</td>
+                    <td className={cn('py-4 px-2 font-medium', asset.profitLossPercentage === null ? 'text-green-500' : (asset.profitLossPercentage >= 0 ? 'text-green-500' : 'text-destructive'))}>
+                      {asset.profitLossPercentage === null ? (
+                        <>▲ {formatCurrency(asset.profitLoss)}</>
+                      ) : (
+                        <>{asset.profitLossPercentage >= 0 ? '▲' : '▼'} {formatNumber(Math.abs(asset.profitLossPercentage))}%</>
+                      )}
                     </td>
-                    <td className="py-4 px-2 flex gap-2">
-                      <button onClick={() => setModalState({ type: 'update', asset })} className="text-[10px] uppercase font-bold tracking-wider bg-secondary px-3 py-1.5 rounded hover:bg-secondary/80">Edit</button>
-                      <button onClick={() => {
-                        if (confirm('Are you sure you want to remove this asset?')) {
-                          api.removeAsset(asset.id).then(fetchPortfolio).catch(console.error);
-                        }
-                      }} className="text-[10px] uppercase font-bold tracking-wider bg-red-500/10 text-red-500 px-3 py-1.5 rounded hover:bg-red-500/20">Remove</button>
+                    <td className="py-4 px-2">
+                      <div className="flex gap-2">
+                        <button onClick={() => setModalState({ type: 'update', asset })} className="text-[10px] uppercase font-bold tracking-wider bg-secondary px-3 py-1.5 rounded hover:bg-secondary/80">Edit</button>
+                        <button onClick={() => {
+                          if (confirm('Are you sure you want to remove this asset?')) {
+                            api.removeAsset(asset.id).then(fetchPortfolio).catch(console.error);
+                          }
+                        }} className="text-[10px] uppercase font-bold tracking-wider bg-destructive/10 text-destructive px-3 py-1.5 rounded hover:bg-destructive/20">Remove</button>
+                      </div>
                     </td>
                   </tr>
                 ))

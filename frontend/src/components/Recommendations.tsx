@@ -57,16 +57,19 @@ export function Recommendations({ className }: { className?: string }) {
         <p className="text-sm text-muted-foreground">Get on-demand trading strategies and 7-day target metrics using active market data, indicators, and media sentiment.</p>
       </div>
 
-      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-center gap-3">
-        <span className="text-yellow-500 text-xs font-medium">
-          Note: If the backend has been asleep, auto-fetching pauses. Ensure you trigger a <strong className="font-bold">Force Fetch</strong> in the News tab so the AI has the absolute latest market context before analyzing.
-        </span>
+      <div className="flex items-center gap-2">
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-full px-3 py-1 flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+          <span className="text-yellow-500 text-[10px] font-bold uppercase tracking-wider">
+            Backend Auto-Fetch Paused. Go to News to Force Fetch.
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 mt-2">
         <div className="text-[10px] font-bold text-primary tracking-widest uppercase flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-          FINPILOT AI GROUNDING ENGINE HUD
+          BEACON AI GROUNDING ENGINE HUD
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-secondary/20 border border-border rounded-xl p-4 flex flex-col gap-1.5">
@@ -136,7 +139,7 @@ export function Recommendations({ className }: { className?: string }) {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-1.5">
                         <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">7D Price Target</div>
-                        <div className="text-sm font-medium text-foreground">${(rec.priceTarget || 0).toFixed(2)}</div>
+                        <div className="text-sm font-medium text-foreground">${(rec.priceTarget || 0).toFixed(5)}</div>
                       </div>
                       <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-1.5">
                         <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Risk Profile</div>
@@ -154,44 +157,74 @@ export function Recommendations({ className }: { className?: string }) {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-1.5">
+                        <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Current Price</div>
+                        <div className="text-sm font-medium text-foreground">${(rec.currentPrice || 0).toFixed(5)}</div>
+                      </div>
+                      <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-1.5">
+                        <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Volatility (30D)</div>
+                        <div className="text-sm font-medium text-foreground">{(rec.volatility || 0).toFixed(5)}</div>
+                      </div>
+                      <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-1.5">
+                        <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Market Cap</div>
+                        <div className="text-sm font-medium text-foreground">{rec.marketCapUsd ? '$' + (rec.marketCapUsd / 1e6).toFixed(2) + 'M' : '—'}</div>
+                      </div>
+                      <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-1.5">
+                        <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Global Rank</div>
+                        <div className="text-sm font-medium text-foreground">#{rec.globalRank || '—'}</div>
+                      </div>
+                    </div>
+
                     <div className="flex flex-col gap-4">
                       <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Advanced Technical Indicators (30-Day Calculations)</div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
-                          <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">RSI (14-Period)</div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-foreground">{(rec.rsi || 0).toFixed(1)}</span>
-                            <span className={cn("text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider", getActionColor(rec.rsiSignal || 'NEUTRAL'))}>
-                              {rec.rsiSignal || 'NEUTRAL'}
-                            </span>
-                          </div>
+                      {!rec.rsi && !rec.macd?.macdLine && !rec.bollingerBands?.upper ? (
+                        <div className="text-sm text-muted-foreground border border-border rounded-lg p-6 bg-secondary/10 text-center">
+                          — Not enough price history to compute indicators —
                         </div>
-                        <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
-                          <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">MACD (12/26/9 EMA)</div>
-                          <div className="flex flex-col gap-1.5 text-[11px]">
-                            <span className="text-foreground font-medium">Line: {(rec.macd?.macdLine || 0).toFixed(2)} | Signal: {(rec.macd?.signalLine || 0).toFixed(2)}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-muted-foreground">Hist: {(rec.macd?.histogram || 0).toFixed(2)}</span>
-                              <span className={cn("text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider", getActionColor(rec.macd?.signal || 'NEUTRAL'))}>
-                                {rec.macd?.signal || 'NEUTRAL'}
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                          <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
+                            <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">RSI (14-Period)</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-foreground">{rec.rsi ? rec.rsi.toFixed(1) : '—'}</span>
+                              <span className={cn("text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider", getActionColor(rec.rsiSignal || 'NEUTRAL'))}>
+                                {rec.rsiSignal || 'NEUTRAL'}
                               </span>
                             </div>
                           </div>
-                        </div>
-                        <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
-                          <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Bollinger Bands (20-Period)</div>
-                          <div className="flex flex-col gap-1 text-[11px]">
-                            <span className="text-foreground font-medium">Upper: ${(rec.bollingerBands?.upper || 0).toFixed(2)}</span>
-                            <span className="text-foreground font-medium">Lower: ${(rec.bollingerBands?.lower || 0).toFixed(2)}</span>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className="text-muted-foreground">BB Signal:</span>
-                              <span className={cn("text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider", getActionColor(rec.bollingerBands?.signal || 'NEUTRAL'))}>
-                                {rec.bollingerBands?.signal || 'NEUTRAL'}
-                              </span>
+                          <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
+                            <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">MACD (12/26/9 EMA)</div>
+                            <div className="flex flex-col gap-1.5 text-[11px]">
+                              <span className="text-foreground font-medium">Line: {rec.macd?.macdLine ? rec.macd.macdLine.toFixed(5) : '—'} | Signal: {rec.macd?.signalLine ? rec.macd.signalLine.toFixed(5) : '—'}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-muted-foreground">Hist: {rec.macd?.histogram ? rec.macd.histogram.toFixed(5) : '—'}</span>
+                                <span className={cn("text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider", getActionColor(rec.macd?.signal || 'NEUTRAL'))}>
+                                  {rec.macd?.signal || 'NEUTRAL'}
+                               </span>
+                              </div>
                             </div>
                           </div>
+                          <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
+                            <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Bollinger Bands (20-Period)</div>
+                            <div className="flex flex-col gap-1 text-[11px]">
+                              <span className="text-foreground font-medium">Upper: {rec.bollingerBands?.upper ? '$' + rec.bollingerBands.upper.toFixed(5) : '—'}</span>
+                              <span className="text-foreground font-medium">Middle: {rec.bollingerBands?.middle ? '$' + rec.bollingerBands.middle.toFixed(5) : '—'}</span>
+                              <span className="text-foreground font-medium">Lower: {rec.bollingerBands?.lower ? '$' + rec.bollingerBands.lower.toFixed(5) : '—'}</span>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-muted-foreground">BB Signal:</span>
+                                <span className={cn("text-[8px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider", getActionColor(rec.bollingerBands?.signal || 'NEUTRAL'))}>
+                                  {rec.bollingerBands?.signal || 'NEUTRAL'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="border border-border rounded-lg p-4 bg-secondary/10 flex flex-col gap-3">
+                            <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">7D Moving Average</div>
+                            <div className="text-sm font-bold text-foreground">{rec.movingAverage ? '$' + rec.movingAverage.toFixed(5) : '—'}</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-2">

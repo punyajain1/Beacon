@@ -100,7 +100,7 @@ export function NewsStream({ className }: { className?: string }) {
 
   return (
     <div className={cn('flex flex-col rounded-xl bg-card p-6 border border-border min-h-[800px]', className)}>
-      <div className="flex items-center justify-between mb-6 border-b border-border pb-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b border-border pb-4 gap-4">
         <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
           <Globe size={18} className="text-primary" /> Global Market News
         </h3>
@@ -142,7 +142,7 @@ export function NewsStream({ className }: { className?: string }) {
           } finally {
             setLoadingSummary(false);
           }
-        }} className="flex gap-3">
+        }} className="flex flex-col sm:flex-row gap-3">
           <input 
             type="text" 
             placeholder="Asset Summary (e.g. BTC)" 

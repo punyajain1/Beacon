@@ -1,37 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #000000;
+  --color-background: #0A0A0A;
   --color-foreground: #ffffff;
 
-  --color-card: #000000;
+  --color-card: #111111;
   --color-card-foreground: #ffffff;
   
-  --color-popover: #000000;
+  --color-popover: #111111;
   --color-popover-foreground: #ffffff;
 
-  --color-primary: #ffffff;
+  --color-primary: #bef264;
   --color-primary-foreground: #000000;
 
-  --color-secondary: #111111;
+  --color-secondary: #1A1A1A;
   --color-secondary-foreground: #ffffff;
 
-  --color-muted: #111111;
-  --color-muted-foreground: #888888;
+  --color-muted: #1A1A1A;
+  --color-muted-foreground: #A1A1AA;
 
-  --color-accent: #111111;
-  --color-accent-foreground: #ffffff;
+  --color-accent: #bef264;
+  --color-accent-foreground: #000000;
 
-  --color-destructive: #ff3333;
+  --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
 
-  --color-border: #222222;
-  --color-input: #111111;
-  --color-ring: #ffffff;
+  --color-border: #ffffff14; /* 8% white */
+  --color-input: #1A1A1A;
+  --color-ring: #bef264;
 
-  --radius-lg: 4px;
-  --radius-md: 4px;
-  --radius-sm: 2px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
 }
 
 @layer base {
@@ -42,6 +42,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
   }
 }
 

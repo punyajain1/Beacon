@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { MarketStats } from '@/components/MarketStats';
+import { DashboardHero } from '@/components/DashboardHero';
 import { AssetsTable } from '@/components/AssetsTable';
 import { NewsStream } from '@/components/NewsStream';
 import { Chatbot } from '@/components/Chatbot';
@@ -11,6 +12,7 @@ import { Recommendations } from '@/components/Recommendations';
 import { FearAndGreed } from '@/components/FearAndGreed';
 import { IndiaTracker } from '@/components/IndiaTracker';
 import { Derivatives } from '@/components/Derivatives';
+import { Docs } from '@/components/Docs';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -21,15 +23,23 @@ export default function Home() {
       
       <main className="flex-1 w-full mx-auto p-6 md:p-8 flex flex-col gap-8">
         
-        <div className={activeTab === 'dashboard' ? 'flex flex-col gap-8' : 'hidden'}>
+        <div className={activeTab === 'dashboard' ? 'flex flex-col gap-6' : 'hidden'}>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">Welcome back, here is your portfolio overview.</p>
           </div>
           
-          <MarketStats />
-          <FearAndGreed />
-          <div className="flex flex-col gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2">
+              <DashboardHero className="h-full" />
+            </div>
+            <div className="xl:col-span-1">
+              <FearAndGreed className="h-full" />
+            </div>
+          </div>
+          
+          <div className="flex flex-col gap-6">
+            <MarketStats />
             <AssetsTable />
           </div>
         </div>
@@ -63,6 +73,10 @@ export default function Home() {
 
         <div className={activeTab === 'derivatives' ? 'flex-1' : 'hidden'}>
           <Derivatives />
+        </div>
+
+        <div className={activeTab === 'docs' ? 'flex-1' : 'hidden'}>
+          <Docs />
         </div>
 
       </main>

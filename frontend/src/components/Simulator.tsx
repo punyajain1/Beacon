@@ -112,8 +112,8 @@ export function Simulator({ className }: { className?: string }) {
                   <AreaChart data={result.timeSeries} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ffffff" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15}/>
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#222222" vertical={false} />
@@ -124,12 +124,18 @@ export function Simulator({ className }: { className?: string }) {
                       axisLine={false} 
                       dy={10}
                       minTickGap={30}
+                      tickFormatter={(val) => {
+                        try {
+                          return new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+                        } catch { return val; }
+                      }}
                     />
                     <YAxis 
                       tick={{ fill: '#888888', fontSize: 10 }} 
                       tickLine={false} 
                       axisLine={false} 
-                      tickFormatter={(val) => `$${val}`}
+                      width={45}
+                      tickFormatter={(val) => val >= 1000 ? `$${(val / 1000).toFixed(1)}k` : `$${val}`}
                     />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#000000', border: '1px solid #222222', borderRadius: '6px' }}
@@ -144,11 +150,11 @@ export function Simulator({ className }: { className?: string }) {
                     <Area 
                       type="monotone" 
                       dataKey="portfolioValue" 
-                      stroke="#ffffff" 
+                      stroke="#22c55e" 
                       fillOpacity={1} 
                       fill="url(#colorValue)" 
                       strokeWidth={2} 
-                      activeDot={{ r: 4, fill: '#ffffff', stroke: '#000000', strokeWidth: 2 }}
+                      activeDot={{ r: 4, fill: '#22c55e', stroke: '#000000', strokeWidth: 2 }}
                     />
                     <Area 
                       type="monotone" 

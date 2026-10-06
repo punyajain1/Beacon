@@ -626,9 +626,7 @@ class MarketDataService {
 
     const apiSymbol = this.getMetalSymbol(symbol);
     const response = await axios.get(`${config.apis.goldApi}/price/${apiSymbol}`);
-    // API returns price per troy ounce. Convert to price per Kg (1 kg = 32.1507466 oz)
-    const priceOunce = response.data.price || 0;
-    const price = priceOunce * 32.1507466;
+    const price = response.data.price || 0;
 
     logger.info(
       `Gold API: fetched ${apiSymbol} (${symbol}) = $${price} (${this.goldApiCallTimestamps.length}/${this.GOLD_API_MAX_CALLS} calls this hour)`
