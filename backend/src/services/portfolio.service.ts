@@ -710,38 +710,40 @@ REQUIRED JSON FORMAT (respond ONLY with valid JSON):
 
     for (const portfolio of portfolios) {
       try {
-        // Generate fresh recommendation for each asset
-        const recommendation = await this.analyzeAsset(portfolio.id);
+        // Fetch cached recommendation for each asset instead of generating a new one automatically
+        const recommendation = await this.getCachedAnalysis(portfolio.id);
         
-        recommendations.push({
-          portfolio: {
-            id: portfolio.id,
-            assetName: portfolio.assetName,
-            symbol: portfolio.symbol,
-            assetType: portfolio.assetType,
-            amount: portfolio.amount,
-          },
-          recommendation: {
-            id: recommendation.id,
-            action: recommendation.action,
-            reasoning: recommendation.reasoning,
-            confidence: recommendation.confidence,
-            priceTarget: recommendation.priceTarget,
-            riskLevel: recommendation.riskLevel,
-            currentPrice: recommendation.currentPrice,
-            priceChange7d: recommendation.priceChange7d,
-            volatility: recommendation.volatility,
-            movingAverage: recommendation.movingAverage,
-            sentimentScore: recommendation.sentimentScore,
-            sentimentLabel: recommendation.sentimentLabel,
-            analysisDate: recommendation.analysisDate,
-            marketCapUsd: recommendation.marketCapUsd,
-            globalRank: recommendation.globalRank,
-          },
-        });
+        if (recommendation) {
+          recommendations.push({
+            portfolio: {
+              id: portfolio.id,
+              assetName: portfolio.assetName,
+              symbol: portfolio.symbol,
+              assetType: portfolio.assetType,
+              amount: portfolio.amount,
+            },
+            recommendation: {
+              id: recommendation.id,
+              action: recommendation.action,
+              reasoning: recommendation.reasoning,
+              confidence: recommendation.confidence,
+              priceTarget: recommendation.priceTarget,
+              riskLevel: recommendation.riskLevel,
+              currentPrice: recommendation.currentPrice,
+              priceChange7d: recommendation.priceChange7d,
+              volatility: recommendation.volatility,
+              movingAverage: recommendation.movingAverage,
+              sentimentScore: recommendation.sentimentScore,
+              sentimentLabel: recommendation.sentimentLabel,
+              analysisDate: recommendation.analysisDate,
+              marketCapUsd: recommendation.marketCapUsd,
+              globalRank: recommendation.globalRank,
+            },
+          });
+        }
       } catch (error) {
-        logger.error(`Error generating recommendation for ${portfolio.assetName}:`, error);
-        // Skip this asset if recommendation fails
+        logger.error(`Error getting cached recommendation for ${portfolio.assetName}:`, error);
+        // Skip this asset if fetching fails
       }
     }
 

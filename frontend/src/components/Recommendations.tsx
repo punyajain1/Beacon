@@ -21,7 +21,8 @@ export function Recommendations({ className }: { className?: string }) {
       if (res.success && res.data && Array.isArray(res.data)) {
         const recMap: Record<string, any> = {};
         res.data.forEach((r: any) => {
-          if (r.assetId) recMap[r.assetId] = r;
+          if (r.portfolio?.id) recMap[r.portfolio.id] = r.recommendation;
+          else if (r.assetId) recMap[r.assetId] = r;
           else if (r.asset) recMap[r.asset] = r; 
         });
         setRecommendations(recMap);
@@ -32,9 +33,10 @@ export function Recommendations({ className }: { className?: string }) {
   const getRecommendationForAsset = async (id: string, symbol: string) => {
     setLoadingId(id);
     try {
-      await api.triggerAnalysis(id);
-      const data = await api.getAnalysis(id);
-      setRecommendations(prev => ({ ...prev, [id]: data }));
+      const response = await api.triggerAnalysis(id);
+      if (response.success && response.data) {
+        setRecommendations(prev => ({ ...prev, [id]: response.data }));
+      }
     } catch (e) {
       console.error(e);
     } finally {

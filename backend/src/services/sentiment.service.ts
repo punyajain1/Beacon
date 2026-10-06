@@ -47,6 +47,7 @@ class SentimentService {
       const result = await this.hf.textClassification({
         model: this.model,
         inputs: text.substring(0, 512), // FinBERT has 512 token limit
+        provider: 'hf-inference', // Specify provider to remove unnecessary logs
       });
 
       const sentimentResult = this.processSentimentResult(result);

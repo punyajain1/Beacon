@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, Bell, Search, LayoutDashboard, Target, Beaker, FileText, MessageSquare, Newspaper } from 'lucide-react';
+import { Activity, Bell, Search, LayoutDashboard, Target, Beaker, FileText, MessageSquare, Newspaper, MapPin, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -8,6 +8,8 @@ const navItems = [
   { icon: Newspaper, label: 'News', id: 'news' },
   { icon: Target, label: 'Recommendations', id: 'recommendations' },
   { icon: Beaker, label: 'Simulator', id: 'simulator' },
+  { icon: MapPin, label: 'India Hub', id: 'india' },
+  { icon: Flame, label: 'Futures', id: 'derivatives' },
   { icon: MessageSquare, label: 'Chatbot', id: 'chatbot' },
   { icon: FileText, label: 'Docs', id: 'docs' },
 ];
@@ -42,21 +44,6 @@ export function Header({ activeTab, setActiveTab }: { activeTab: string, setActi
         </nav>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="h-8 w-64 rounded-md bg-background border border-border pl-8 pr-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-          />
-        </div>
-
-        <button className="relative rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground border border-border">
-          <Bell size={16} />
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card"></span>
-        </button>
-      </div>
     </header>
   );
 }

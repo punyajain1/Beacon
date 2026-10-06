@@ -1,4 +1,4 @@
-export const API_BASE = 'http://localhost:3000/api';
+export const API_BASE = 'http://localhost:4000/api';
 
 export interface SyncProfileRequest {
   walletAddress: string;
@@ -92,7 +92,19 @@ export const api = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   }).then(res => res.json()),
-  getNewsSummary: (assetName: string) => fetch(`${API_BASE}/news/summary/${assetName}`).then(res => res.json())
+  getNewsSummary: (assetName: string) => fetch(`${API_BASE}/news/summary/${assetName}`).then(res => res.json()),
+
+  // India Specific
+  getIndiaPremium: (symbol: string) => fetch(`${API_BASE}/india/premium/${symbol}`).then(res => res.json()),
+  getIndiaRanks: (symbol: string) => fetch(`${API_BASE}/india/rank/${symbol}`).then(res => res.json()),
+  previewIndiaTax: (buyPrice: number, sellPrice: number, amount: number) => fetch(`${API_BASE}/india/tax-preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ buyPrice, sellPrice, amount })
+  }).then(res => res.json()),
+
+  // Derivatives
+  getDerivatives: (symbol: string) => fetch(`${API_BASE}/derivatives/${symbol}`).then(res => res.json())
 };
 
-export const WS_URL = 'ws://localhost:3000/ws/news';
+export const WS_URL = 'ws://localhost:4000/ws/news';

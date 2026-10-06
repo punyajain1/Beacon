@@ -92,7 +92,7 @@ app.use(errorHandler);
 
 const PORT = config.port;
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT as number, '127.0.0.1', () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${config.nodeEnv}`);
 

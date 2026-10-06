@@ -8,6 +8,9 @@ import { NewsStream } from '@/components/NewsStream';
 import { Chatbot } from '@/components/Chatbot';
 import { Simulator } from '@/components/Simulator';
 import { Recommendations } from '@/components/Recommendations';
+import { FearAndGreed } from '@/components/FearAndGreed';
+import { IndiaTracker } from '@/components/IndiaTracker';
+import { Derivatives } from '@/components/Derivatives';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,6 +28,7 @@ export default function Home() {
           </div>
           
           <MarketStats />
+          <FearAndGreed />
           <div className="flex flex-col gap-8">
             <AssetsTable />
           </div>
@@ -51,6 +55,14 @@ export default function Home() {
         <div className={activeTab === 'recommendations' ? 'flex-1' : 'hidden'}>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-6">Recommendations</h1>
           <Recommendations />
+        </div>
+
+        <div className={activeTab === 'india' ? 'flex-1' : 'hidden'}>
+          <IndiaTracker />
+        </div>
+
+        <div className={activeTab === 'derivatives' ? 'flex-1' : 'hidden'}>
+          <Derivatives />
         </div>
 
       </main>
