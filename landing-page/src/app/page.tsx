@@ -13,12 +13,29 @@ import {
   BarChart2, 
   Calculator,
   ShieldAlert,
-  Database
+  Database,
+  Copy,
+  Check
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import ArchitectureDiagram from "../components/ArchitectureDiagram";
 import PipelineFlowchart from "../components/PipelineFlowchart";
+
+const GithubIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.02c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A4.8 4.8 0 0 0 8 18v4"></path>
+  </svg>
+);
 
 const Mermaid = ({ chart, id }: { chart: string, id: string }) => {
   const [svg, setSvg] = useState<string>('');
@@ -92,11 +109,11 @@ const features = [
 const steps = [
   {
     title: "1. Clone the repository",
-    code: "git clone https://github.com/yourusername/beacon.git",
+    code: "git clone https://github.com/punyajain1/Beacon.git",
   },
   {
     title: "2. Setup Backend",
-    code: "cd backend\nnpm install\n# Setup .env with DATABASE_URL, GROQ_API_KEY, etc.\nnpx prisma db push\nnpm run dev",
+    code: "cd backend\nnpm install\n# Setup .env with DATABASE_URL, QWEN_API_KEY, etc.\nnpx prisma db push\nnpm run dev",
   },
   {
     title: "3. Setup Frontend",
@@ -109,6 +126,8 @@ const steps = [
 ];
 
 export default function LandingPage() {
+  const [copiedStep, setCopiedStep] = useState<number | null>(null);
+
   return (
     <main className="min-h-screen bg-black text-white font-sans selection:bg-neutral-800">
       {/* Navigation */}
@@ -118,7 +137,7 @@ export default function LandingPage() {
             <div className="w-5 h-5 bg-white rounded flex items-center justify-center">
               <LineChart className="w-3 h-3 text-black" />
             </div>
-            <span className="text-sm font-medium tracking-tight">Beacon (formerly FinPilot)</span>
+            <span className="text-sm font-medium tracking-tight">Beacon <span className="text-neutral-500 font-normal">by <a href="https://www.punyajain.me/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Punya Jain</a></span></span>
           </div>
           <div className="flex items-center gap-6">
             <Link href="#features" className="text-xs text-neutral-400 hover:text-white transition-colors">
@@ -130,12 +149,16 @@ export default function LandingPage() {
             <Link href="#getting-started" className="text-xs text-neutral-400 hover:text-white transition-colors">
               Getting Started
             </Link>
+            <Link href="https://github.com/punyajain1/Beacon" target="_blank" className="text-xs text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 ml-2">
+              <GithubIcon className="w-3 h-3" />
+              Star on GitHub
+            </Link>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-40 pb-20 px-6">
+      <section className="pt-28 pb-20 px-6">
         <div className="max-w-4xl mx-auto text-center flex flex-col items-center">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -155,6 +178,15 @@ export default function LandingPage() {
           >
             Beacon
           </motion.h1>
+
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="text-lg md:text-xl text-neutral-500 mb-6 -mt-3 font-light"
+          >
+            Built by <a href="https://www.punyajain.me/" target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-white hover:underline transition-colors font-medium">Punya Jain</a>
+          </motion.div>
 
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -212,14 +244,14 @@ export default function LandingPage() {
       </section>
 
       {/* System Architecture */}
-      <section id="architecture" className="w-full">
+      <section id="architecture" className="w-full scroll-mt-14">
         <ArchitectureDiagram />
       </section>
 
       {/* RAG Pipeline */}
-      <section className="py-24 px-6 border-t border-white/5">
+      <section className="pt-24 pb-12 px-6 border-t border-white/5">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-16">
+          <div className="mb-12">
             <h2 className="text-2xl font-medium tracking-tight mb-4">The AI Cognitive Engine (RAG Pipeline)</h2>
             <p className="text-neutral-400 text-sm leading-relaxed max-w-3xl mb-8">
               Beacon’s Recommendation Engine doesn’t just guess or hallucinate. It relies on a rigorous <strong>Retrieval-Augmented Generation (RAG)</strong> pipeline tailored specifically for quantitative finance.
@@ -247,14 +279,14 @@ export default function LandingPage() {
                 <p className="text-sm text-neutral-500">Forces the LLM to output a strict JSON schema with price targets, actions, and exact reasoning.</p>
               </div>
             </div>
-
-            <PipelineFlowchart />
           </div>
         </div>
+        
+        <PipelineFlowchart />
       </section>
 
       {/* Database Schema */}
-      <section className="py-24 px-6 border-t border-white/5 bg-neutral-950/20">
+      <section className="py-20 px-6 border-t border-white/5 bg-neutral-950/20">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-16 items-center">
           <div className="md:w-1/2">
             <h2 className="text-2xl font-medium tracking-tight mb-4">Database Schema (JSONB Advantage)</h2>
@@ -291,12 +323,12 @@ export default function LandingPage() {
       </section>
 
       {/* Instructions Section */}
-      <section id="getting-started" className="py-24 px-6 border-t border-white/5">
+      <section id="getting-started" className="py-20 px-6 border-t border-white/5 scroll-mt-14">
         <div className="max-w-3xl mx-auto">
           <div className="mb-12 text-center">
             <h2 className="text-2xl font-medium tracking-tight mb-4">Getting Started</h2>
             <p className="text-neutral-500 text-sm">
-              Prerequisites: Node.js v18+, PostgreSQL, and API Keys for Groq & HuggingFace.
+              Prerequisites: Node.js v18+, PostgreSQL, and API Keys for Qwen 3.8 & HuggingFace.
             </p>
           </div>
 
@@ -305,8 +337,19 @@ export default function LandingPage() {
               <div key={i} className="flex gap-6 items-start bg-neutral-950 p-6 rounded-xl border border-neutral-900">
                 <div className="flex-1 space-y-4">
                   <h3 className="text-base font-medium text-neutral-200">{step.title}</h3>
-                  <div className="bg-black border border-neutral-800 rounded-lg p-4 overflow-x-auto">
-                    <pre className="text-sm font-mono text-neutral-400 leading-relaxed"><code>{step.code}</code></pre>
+                  <div className="bg-black border border-neutral-800 rounded-lg p-4 relative group">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(step.code);
+                        setCopiedStep(i);
+                        setTimeout(() => setCopiedStep(null), 2000);
+                      }}
+                      className="absolute top-3 right-3 p-1.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-400 opacity-0 group-hover:opacity-100 transition-all hover:text-white hover:bg-neutral-800"
+                      title="Copy to clipboard"
+                    >
+                      {copiedStep === i ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <pre className="text-sm font-mono text-neutral-400 leading-relaxed overflow-x-auto pr-12"><code>{step.code}</code></pre>
                   </div>
                 </div>
               </div>
@@ -314,6 +357,13 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="py-8 text-center border-t border-white/5 bg-black">
+        <p className="text-sm text-neutral-500">
+          Built by <a href="https://www.punyajain.me/" target="_blank" rel="noopener noreferrer" className="text-white hover:underline font-medium">Punya Jain</a>
+        </p>
+      </footer>
     </main>
   );
 }
