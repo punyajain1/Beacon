@@ -104,7 +104,7 @@ class PortfolioService {
 
   /**
    * Sync wallet holdings — upsert by symbol.
-   * Adds new positions and updates amounts on existing ones.
+   * Adds new positions and optionally adds to or replaces existing ones.
    */
   async syncWalletHoldings(
     holdings: Array<{
@@ -113,12 +113,30 @@ class PortfolioService {
       amount: number;
       assetType: AssetType;
       buyingPrice?: number; // optional: if omitted, fetches live price
-    }>
-  ): Promise<{ added: number; updated: number; skipped: number; results: any[] }> {
+    }>,
+    resolution?: 'add' | 'replace'
+  ): Promise<{ added: number; updated: number; skipped: number; results: any[]; requiresConfirmation?: boolean; conflicts?: any[] }> {
     let added = 0;
     let updated = 0;
     let skipped = 0;
     const results: any[] = [];
+
+    if (!resolution) {
+      const symbols = holdings.map(h => h.symbol.toUpperCase());
+      const existing = await prisma.portfolio.findMany({
+        where: { symbol: { in: symbols } },
+      });
+      if (existing.length > 0) {
+        return {
+          added: 0,
+          updated: 0,
+          skipped: 0,
+          results: [],
+          requiresConfirmation: true,
+          conflicts: existing.map(e => e.symbol),
+        };
+      }
+    }
 
     for (const holding of holdings) {
       try {
@@ -143,14 +161,24 @@ class PortfolioService {
         }
 
         if (existing) {
-          // Update amount only (preserve original buying price)
+          let newAmount = holding.amount;
+          let newBuyingPrice = buyingPrice;
+          
+          if (resolution === 'add') {
+            newAmount = existing.amount + holding.amount;
+            // Calculate weighted average buying price
+            const totalValue = (existing.amount * existing.buyingPrice) + (holding.amount * buyingPrice);
+            newBuyingPrice = totalValue / newAmount;
+          }
+
+          // Update amount and buying price
           const updatedAsset = await prisma.portfolio.update({
             where: { id: existing.id },
-            data: { amount: holding.amount },
+            data: { amount: newAmount, buyingPrice: newBuyingPrice },
           });
           updated++;
-          results.push({ action: 'updated', symbol, id: existing.id, amount: holding.amount });
-          logger.info(`Wallet sync: updated ${symbol} amount to ${holding.amount}`);
+          results.push({ action: 'updated', symbol, id: existing.id, amount: newAmount });
+          logger.info(`Wallet sync: updated ${symbol} amount to ${newAmount} and buyingPrice to ${newBuyingPrice}`);
         } else {
           // Create new position
           const newAsset = await prisma.portfolio.create({

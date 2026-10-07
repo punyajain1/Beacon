@@ -48,11 +48,17 @@ export const api = {
   removeAsset: (id: string) => fetch(`${API_BASE}/portfolio/remove/${id}`, {
     method: 'DELETE'
   }).then(res => res.json()),
-  syncWallet: (holdings: Holding[]) => fetch(`${API_BASE}/portfolio/sync-wallet`, {
+  syncWallet: (holdings: Holding[], resolution?: 'add' | 'replace') => fetch(`${API_BASE}/portfolio/sync-wallet`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ holdings })
-  }).then(res => res.json()),
+    body: JSON.stringify({ holdings, resolution })
+  }).then(async res => {
+    const data = await res.json();
+    if (!res.ok && res.status !== 409) {
+      throw new Error(data.message || data.error || 'Failed to sync wallet');
+    }
+    return data;
+  }),
 
   // Chat
   getChatHistory: (conversationId: string) => fetch(`${API_BASE}/chat/history?conversationId=${conversationId}`).then(res => res.json()),

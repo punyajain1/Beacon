@@ -172,7 +172,7 @@ export const getAssetAnalysis = async (req: Request, res: Response) => {
 
 export const syncWallet = async (req: Request, res: Response) => {
   try {
-    const { holdings } = req.body;
+    const { holdings, resolution } = req.body;
 
     if (!Array.isArray(holdings) || holdings.length === 0) {
       return res.status(400).json({
@@ -195,7 +195,16 @@ export const syncWallet = async (req: Request, res: Response) => {
       if (!h.assetName) h.assetName = h.symbol.toUpperCase();
     }
 
-    const result = await portfolioService.syncWalletHoldings(holdings);
+    const result = await portfolioService.syncWalletHoldings(holdings, resolution);
+
+    if (result.requiresConfirmation) {
+      return res.status(409).json({
+        success: false,
+        requiresConfirmation: true,
+        conflicts: result.conflicts,
+        message: 'Some of these assets already exist in your portfolio. How would you like to resolve them?',
+      });
+    }
 
     res.json({
       success: true,
