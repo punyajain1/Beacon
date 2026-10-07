@@ -14,7 +14,7 @@ Beacon operates on a decoupled client-server architecture designed for high-freq
 *   **Backend**: Node.js, Express, WebSocket (for live news).
 *   **Database**: PostgreSQL managed via Prisma ORM.
 *   **AI / Machine Learning**: 
-    *   **LLM Engine**: Groq-hosted Llama-3 (120B parameter) for cognitive synthesis.
+    *   **LLM Engine**: qwen/qwen3.8-27b for cognitive synthesis.
     *   **NLP Engine**: HuggingFace FinBERT for financial news sentiment analysis.
 
 ### High-Level Architecture Diagram
@@ -42,7 +42,7 @@ graph TD
 
     subgraph Cognitive Layer
         FinBERT[HuggingFace FinBERT - NLP]
-        Groq[Groq Llama-3 - LLM]
+        Qwen[qwen/qwen3.8-27b - LLM]
     end
 
     Client <-->|REST & WebSocket| Server
@@ -51,7 +51,7 @@ graph TD
     Server -->|Fetch Breaking News| RSSFeed
     Server -->|Calculate RSI/MACD| MathEngine
     Server -->|Analyze Sentiment| FinBERT
-    Server -->|Generate Recommendations| Groq
+    Server -->|Generate Recommendations| Qwen
 ```
 
 ---
@@ -73,7 +73,7 @@ flowchart TD
     MathNode --> Context(4. Build Massive Context Prompt)
     NLPNode --> Context
     
-    Context --> LLM{5. Groq Llama-3 LLM}
+    Context --> LLM{5. qwen/qwen3.8-27b LLM}
     
     LLM --> JSONParse[6. Output Strict JSON Payload]
     JSONParse --> DB[(7. Save JSON to Postgres)]
@@ -136,7 +136,7 @@ This ensures that if the LLM prompt is updated to return new indicators (e.g., a
 ### Prerequisites
 *   Node.js v18+
 *   PostgreSQL running locally or via Docker
-*   API Keys: Groq (LLM), HuggingFace (FinBERT - optional, fallback available)
+*   API Keys: OpenRouter or equivalent for qwen3.8-27b, HuggingFace (FinBERT - optional, fallback available)
 
 ### Installation
 
@@ -145,7 +145,7 @@ This ensures that if the LLM prompt is updated to return new indicators (e.g., a
     ```bash
     cd backend
     npm install
-    # Setup .env with DATABASE_URL, GROQ_API_KEY, etc.
+    # Setup .env with DATABASE_URL, QWEN_API_KEY, etc.
     npx prisma db push
     npm run dev
     ```
