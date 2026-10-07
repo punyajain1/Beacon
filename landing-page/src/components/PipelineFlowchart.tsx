@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { 
+import {
   Database,
   LineChart,
   Newspaper,
@@ -46,12 +46,29 @@ const phases = [
 
 export default function PipelineFlowchart() {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  React.useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        // Get the available width (subtracting 32px for some padding)
+        const availableWidth = containerRef.current.clientWidth - 32;
+        // The original diagram is 1600px wide. We scale it down if the screen is smaller.
+        const newScale = Math.min(1, availableWidth / 1600);
+        setScale(newScale);
+      }
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, []);
 
   const getPath = (x1: number, y1: number, x2: number, y2: number) => {
     const dy = Math.abs(y2 - y1);
     const dx = Math.abs(x2 - x1);
     if (dy < 5) return `M ${x1} ${y1} L ${x2} ${y2}`;
-    return `M ${x1} ${y1} C ${x1 + dx/2} ${y1}, ${x1 + dx/2} ${y2}, ${x2} ${y2}`;
+    return `M ${x1} ${y1} C ${x1 + dx / 2} ${y1}, ${x1 + dx / 2} ${y2}, ${x2} ${y2}`;
   };
 
   const renderNodeContent = (node: any, isHovered: boolean) => {
@@ -62,10 +79,10 @@ export default function PipelineFlowchart() {
     const iconCol = isHero ? "text-[#000000]" : (isHovered ? "text-[#000000]" : "text-[#FAFAFA]");
     const shadow = isHero ? "0 0 40px rgba(255,255,255,0.08)" : (isHovered ? "0 0 20px rgba(255,255,255,0.04)" : "none");
     const scale = isHero ? "scale-110" : "scale-100";
-    
+
     return (
-      <div 
-        className={`group relative flex flex-col items-start w-[200px] h-auto min-h-[140px] rounded-xl p-4 shadow-2xl transition-all duration-300 ${bgFill} ${borderCol} border ${scale}`}
+      <div
+        className={`group relative flex flex-col items-start w-full sm:w-[200px] h-auto min-h-[120px] sm:min-h-[140px] rounded-xl p-4 shadow-2xl transition-all duration-300 ${bgFill} ${borderCol} border ${scale}`}
         style={{ boxShadow: shadow }}
       >
         <div className="flex items-center gap-3 mb-3 border-b border-[#262626] pb-3 w-full relative">
@@ -75,10 +92,10 @@ export default function PipelineFlowchart() {
           <h4 className="text-[14px] font-semibold text-[#FAFAFA] text-left leading-tight">
             {node.title}
           </h4>
-          
+
           {/* Number Badge */}
           <div className={`absolute -top-6 -left-6 w-5 h-5 rounded-full border ${isHero ? 'border-[#FAFAFA] bg-[#FAFAFA] text-black' : 'border-[#525252] bg-[#000000] text-[#A3A3A3]'} flex items-center justify-center text-[10px] font-bold z-20`}>
-            {node.step.replace('0','')}
+            {node.step.replace('0', '')}
           </div>
         </div>
 
@@ -110,19 +127,25 @@ export default function PipelineFlowchart() {
   };
 
   return (
-    <div className="w-full">
-      {/* Desktop Layout (Horizontal Swimlanes) */}
-      <div className="hidden lg:block w-full relative pt-12 pb-12 bg-[#000000] border-t border-b border-[#262626] overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
-        
-        <div className="w-full overflow-x-auto pb-8 hide-scrollbar">
-          <div className="relative min-w-[1600px] h-[600px] mx-auto z-10 mt-8">
-            
+    <div className="w-full relative pt-12 pb-12 bg-[#000000] border-t border-b border-[#262626] overflow-hidden">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+
+      {/* Scaled Flowchart Container */}
+      <div ref={containerRef} className="w-full flex justify-center px-4">
+        <div
+          className="relative font-sans transition-all duration-300"
+          style={{ width: 1600 * scale, height: 600 * scale }}
+        >
+          <div
+            className="absolute top-0 left-0 origin-top-left"
+            style={{ width: 1600, height: 600, transform: `scale(${scale})` }}
+          >
+
             {/* Phase Background Bands */}
             <div className="absolute inset-0 flex pointer-events-none z-0 border-y border-[#262626]">
               {phases.map((phase, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="h-full relative border-r border-[#262626]"
                   style={{ width: `${phase.end - phase.start}%`, backgroundColor: phase.color }}
                 >
@@ -148,7 +171,7 @@ export default function PipelineFlowchart() {
                   <polygon points="0 0, 6 3, 0 6" fill="#FAFAFA" />
                 </marker>
               </defs>
-              
+
               {edges.map((edge, i) => {
                 const fromNode = nodes.find(n => n.id === edge.from)!;
                 const toNode = nodes.find(n => n.id === edge.to)!;
@@ -157,11 +180,11 @@ export default function PipelineFlowchart() {
                 const isAnyHovered = hoveredNode !== null;
                 const strokeColor = isAnyHovered && !isHovered ? "rgba(82,82,82,0.3)" : "#525252";
                 const mEnd = isHovered ? "url(#pipeArrowActive)" : "url(#pipeArrow)";
-                
+
                 return (
                   <g key={"edge-" + i}>
                     <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="1.5" vectorEffect="non-scaling-stroke" markerEnd={mEnd} className="transition-colors duration-300" />
-                    <motion.path 
+                    <motion.path
                       d={pathData} fill="none" stroke="url(#pipeLaser)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeDasharray="10 100"
                       animate={{ strokeDashoffset: [110, 0] }}
                       transition={{ duration: 2.5, repeat: Infinity, ease: "linear", delay: i * 0.2 }}
@@ -191,30 +214,11 @@ export default function PipelineFlowchart() {
             {/* Swimlane Labels */}
             <div className="absolute top-[25%] left-2 transform -translate-y-1/2 text-[10px] text-[#737373] tracking-widest font-mono rotate-[-90deg] origin-center">PRICE_LANE</div>
             <div className="absolute top-[75%] left-2 transform -translate-y-1/2 text-[10px] text-[#737373] tracking-widest font-mono rotate-[-90deg] origin-center">NEWS_LANE</div>
-            
+
             {/* Dashed Lane Containers */}
             <div className="absolute top-[10%] left-[6%] w-[20%] h-[30%] border border-dashed border-[#525252] rounded-xl pointer-events-none z-0 opacity-20" />
             <div className="absolute top-[60%] left-[6%] w-[20%] h-[30%] border border-dashed border-[#525252] rounded-xl pointer-events-none z-0 opacity-20" />
           </div>
-        </div>
-      </div>
-
-      {/* Mobile Layout (Vertical Timeline) */}
-      <div className="block lg:hidden w-full relative py-12 px-4 bg-[#000000] border-t border-b border-[#262626]">
-        <div className="absolute left-[39px] top-12 bottom-12 w-px bg-[#262626]" />
-        
-        <div className="flex flex-col gap-12 relative z-10">
-          {nodes.map((node, i) => (
-            <div key={node.id} className="relative pl-20">
-              <div className="absolute left-[20px] top-6 w-10 border-t border-[#525252]" />
-              <div className="absolute left-6 top-3">
-                <div className={`w-8 h-8 rounded-full border ${node.isHero ? 'border-[#FAFAFA] bg-[#FAFAFA] text-black' : 'border-[#525252] bg-[#000000] text-[#A3A3A3]'} flex items-center justify-center text-[12px] font-bold z-20`}>
-                  {node.step.replace('0','')}
-                </div>
-              </div>
-              {renderNodeContent(node, false)}
-            </div>
-          ))}
         </div>
       </div>
     </div>

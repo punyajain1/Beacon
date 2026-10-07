@@ -36,6 +36,23 @@ const edges = [
 
 export default function ArchitectureDiagram() {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  React.useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        // Get the available width (subtracting 32px for some padding)
+        const availableWidth = containerRef.current.clientWidth - 32;
+        // The original diagram is 1200px wide. We scale it down if the screen is smaller.
+        const newScale = Math.min(1, availableWidth / 1200);
+        setScale(newScale);
+      }
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, []);
 
   return (
     <div className="w-full relative pt-12 pb-24 bg-[#000000] border-t border-b border-[#262626] overflow-hidden">
@@ -55,8 +72,16 @@ export default function ArchitectureDiagram() {
       </div>
 
       {/* Main Diagram Container */}
-      <div className="w-full overflow-x-auto pb-10 hide-scrollbar flex justify-center">
-        <div className="relative w-[1200px] min-w-[1200px] h-[850px] z-10 font-sans">
+      <div ref={containerRef} className="w-full flex justify-center px-4 overflow-hidden pb-10">
+        <div 
+          className="relative font-sans transition-all duration-300"
+          style={{ width: 1200 * scale, height: 850 * scale }}
+        >
+          {/* Scaled Inner Wrapper */}
+          <div 
+            className="absolute top-0 left-0 origin-top-left"
+            style={{ width: 1200, height: 850, transform: `scale(${scale})` }}
+          >
           
           {/* Containers */}
           {containers.map(c => (
@@ -163,6 +188,7 @@ export default function ArchitectureDiagram() {
             );
           })}
 
+          </div>
         </div>
       </div>
     </div>
