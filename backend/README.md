@@ -1,4 +1,4 @@
-<h1 align="center">FinPilot (Financial Adviser Backend API)</h1>
+<h1 align="center">Beacon(Formally Know as Finpilot)</h1>
 
 <div align="center">
   <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js">
