@@ -12,6 +12,9 @@ import {
   RefreshCw,
   BarChart2,
   FileText,
+  Sparkles,
+  Activity,
+  Award,
 } from 'lucide-react';
 import {
   ScatterChart,
@@ -22,92 +25,131 @@ import {
   Tooltip,
   ResponsiveContainer,
   Label,
+  ReferenceLine,
 } from 'recharts';
+import { cn } from '@/lib/utils';
 
 const API = 'http://localhost:4000/api';
 
 const LOADING_STEPS = [
-  'Downloading audio...',
-  'Transcribing with Whisper...',
-  'Analyzing stress...',
-  'Fetching price data...',
+  'Downloading audio stream...',
+  'Transcribing executive remarks with Whisper...',
+  'Scoring vocal & linguistic stress markers...',
+  'Fetching T+1 / T+5 post-call price drift...',
 ];
+
+function getStressTone(score: number) {
+  if (score < 30) {
+    return {
+      color: '#22c55e',
+      label: 'Low Stress',
+      badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    };
+  }
+  if (score < 60) {
+    return {
+      color: '#eab308',
+      label: 'Moderate Stress',
+      badge: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    };
+  }
+  return {
+    color: '#ef4444',
+    label: 'High Stress',
+    badge: 'bg-red-500/15 text-red-400 border-red-500/30',
+  };
+}
 
 function StressGauge({ score }: { score: number }) {
   const radius = 80;
-  const circumference = Math.PI * radius; // half-circle arc
+  const circumference = Math.PI * radius; // exact half-circle arc for r=80
   const clampedScore = Math.max(0, Math.min(100, score));
   const offset = circumference - (clampedScore / 100) * circumference;
-
-  const color =
-    clampedScore < 30 ? '#22c55e' : clampedScore < 60 ? '#eab308' : '#ef4444';
+  const tone = getStressTone(clampedScore);
 
   return (
     <div className="flex flex-col items-center">
-      <svg width="200" height="110" viewBox="0 0 200 110">
-        {/* Background arc */}
+      <svg width="210" height="122" viewBox="0 0 200 118">
+        {/* Background arc: center (100,100), r=80 -> M 20 100 A 80 80 0 0 1 180 100 */}
         <path
-          d="M 10 100 A 90 90 0 0 1 190 100"
+          d="M 20 100 A 80 80 0 0 1 180 100"
           fill="none"
-          stroke="#374151"
-          strokeWidth="16"
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth="14"
           strokeLinecap="round"
         />
         {/* Foreground arc */}
         <path
-          d="M 10 100 A 90 90 0 0 1 190 100"
+          d="M 20 100 A 80 80 0 0 1 180 100"
           fill="none"
-          stroke={color}
-          strokeWidth="16"
+          stroke={tone.color}
+          strokeWidth="14"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 1s ease, stroke 0.5s ease' }}
+          style={{ transition: 'stroke-dashoffset 0.9s ease, stroke 0.4s ease' }}
         />
+        {/* Scale end labels */}
+        <text x="20" y="116" textAnchor="middle" fontSize="10" fill="#71717a">
+          0
+        </text>
+        <text x="180" y="116" textAnchor="middle" fontSize="10" fill="#71717a">
+          100
+        </text>
         {/* Score text */}
-        <text x="100" y="88" textAnchor="middle" fontSize="28" fontWeight="bold" fill={color}>
+        <text x="100" y="82" textAnchor="middle" fontSize="30" fontWeight="700" fill={tone.color}>
           {clampedScore}
         </text>
-        <text x="100" y="105" textAnchor="middle" fontSize="11" fill="#9ca3af">
-          STRESS SCORE
+        <text x="100" y="100" textAnchor="middle" fontSize="10" letterSpacing="1.5" fill="#a1a1aa">
+          STRESS INDEX
         </text>
       </svg>
-      <div
-        className="mt-1 text-xs font-semibold uppercase tracking-widest"
-        style={{ color }}
+      <span
+        className={cn(
+          'mt-1 px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider',
+          tone.badge
+        )}
       >
-        {clampedScore < 30 ? 'Low' : clampedScore < 60 ? 'Moderate' : 'High'}
-      </div>
+        {tone.label}
+      </span>
     </div>
   );
 }
 
-function PriceBadge({ label, pct }: { label: string; pct: number | null }) {
-  if (pct === null || pct === undefined)
+function PriceBadge({ label, pct }: { label: string; pct: number | null | undefined }) {
+  if (pct === null || pct === undefined) {
     return (
-      <div className="flex flex-col items-center bg-gray-800 rounded-xl p-4 min-w-[100px]">
-        <span className="text-xs text-gray-400">{label}</span>
-        <span className="text-gray-500 mt-1">—</span>
+      <div className="flex flex-col justify-between bg-secondary/30 border border-border rounded-xl p-4">
+        <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+          {label}
+        </span>
+        <span className="text-lg font-bold text-muted-foreground mt-2">—</span>
       </div>
     );
+  }
 
   const up = pct >= 0;
   return (
     <div
-      className={`flex flex-col items-center rounded-xl p-4 min-w-[100px] ${
-        up ? 'bg-green-900/40 border border-green-700' : 'bg-red-900/40 border border-red-700'
-      }`}
+      className={cn(
+        'flex flex-col justify-between rounded-xl p-4 border',
+        up
+          ? 'bg-emerald-500/10 border-emerald-500/25'
+          : 'bg-red-500/10 border-red-500/25'
+      )}
     >
-      <span className="text-xs text-gray-400">{label}</span>
-      <div className="flex items-center gap-1 mt-1">
+      <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex items-center gap-1.5 mt-2">
         {up ? (
-          <TrendingUp className="w-4 h-4 text-green-400" />
+          <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
         ) : (
-          <TrendingDown className="w-4 h-4 text-red-400" />
+          <TrendingDown className="w-4 h-4 text-red-400 shrink-0" />
         )}
-        <span className={`text-lg font-bold ${up ? 'text-green-400' : 'text-red-400'}`}>
+        <span className={cn('text-xl font-bold', up ? 'text-emerald-400' : 'text-red-400')}>
           {up ? '+' : ''}
-          {pct.toFixed(2)}%
+          {Number(pct).toFixed(2)}%
         </span>
       </div>
     </div>
@@ -124,10 +166,14 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="bg-gray-800 rounded-xl p-4 flex flex-col items-center gap-2 min-w-[110px]">
-      <div className="text-blue-400">{icon}</div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      <div className="text-xs text-gray-400 text-center">{label}</div>
+    <div className="bg-secondary/25 border border-border rounded-xl p-4 flex flex-col justify-between gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+          {label}
+        </span>
+        <span className="text-primary">{icon}</span>
+      </div>
+      <div className="text-2xl font-bold text-foreground capitalize">{value}</div>
     </div>
   );
 }
@@ -141,17 +187,18 @@ function HighlightedTranscript({
 }) {
   if (!transcript) return null;
 
-  let result = transcript;
   const highlights: { start: number; end: number; reason: string }[] = [];
 
   for (const p of passages) {
-    const idx = result.indexOf(p.quote);
+    const idx = transcript.indexOf(p.quote);
     if (idx !== -1) {
       highlights.push({ start: idx, end: idx + p.quote.length, reason: p.reason });
     }
   }
 
-  if (highlights.length === 0) return <p className="text-gray-300 text-sm whitespace-pre-wrap">{transcript}</p>;
+  if (highlights.length === 0) {
+    return <p className="text-muted-foreground text-sm whitespace-pre-wrap leading-relaxed">{transcript}</p>;
+  }
 
   highlights.sort((a, b) => a.start - b.start);
 
@@ -160,7 +207,7 @@ function HighlightedTranscript({
   for (const h of highlights) {
     if (h.start > cursor) {
       parts.push(
-        <span key={cursor} className="text-gray-300">
+        <span key={cursor} className="text-muted-foreground">
           {transcript.slice(cursor, h.start)}
         </span>
       );
@@ -168,7 +215,7 @@ function HighlightedTranscript({
     parts.push(
       <span
         key={h.start}
-        className="bg-red-900/50 text-red-300 rounded px-0.5"
+        className="bg-red-500/20 text-red-300 border-b border-red-500/50 rounded px-1"
         title={h.reason}
       >
         {transcript.slice(h.start, h.end)}
@@ -178,7 +225,7 @@ function HighlightedTranscript({
   }
   if (cursor < transcript.length) {
     parts.push(
-      <span key={cursor} className="text-gray-300">
+      <span key={cursor} className="text-muted-foreground">
         {transcript.slice(cursor)}
       </span>
     );
@@ -187,62 +234,119 @@ function HighlightedTranscript({
   return <p className="text-sm whitespace-pre-wrap leading-relaxed">{parts}</p>;
 }
 
-const CustomScatterTooltip = ({ active, payload }: any) => {
+interface StressPassage {
+  quote: string;
+  reason: string;
+}
+
+interface EarningsCallRecord {
+  id: string;
+  ticker: string;
+  callDate: string;
+  stressScore: number;
+  hedgeWordCount?: number;
+  correctionCount?: number;
+  sentimentLabel?: string | null;
+  priceT0?: number | null;
+  moveT1Pct?: number | null;
+  moveT5Pct?: number | null;
+  stressPassages?: StressPassage[] | null;
+  transcript?: string | null;
+}
+
+interface ScatterTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: EarningsCallRecord }>;
+}
+
+const CustomScatterTooltip = ({ active, payload }: ScatterTooltipProps) => {
   if (active && payload && payload.length) {
     const d = payload[0].payload;
     return (
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs">
-        <p className="font-bold text-white">{d.ticker}</p>
-        <p className="text-gray-400">{new Date(d.callDate).toLocaleDateString()}</p>
-        <p className="text-yellow-400">Stress: {d.stressScore}</p>
-        <p className={d.moveT5Pct >= 0 ? 'text-green-400' : 'text-red-400'}>
-          T+5 Move: {d.moveT5Pct?.toFixed(2)}%
-        </p>
+      <div className="bg-background border border-border rounded-xl p-3 text-xs shadow-xl">
+        <div className="flex items-center justify-between gap-4 mb-1">
+          <span className="font-bold font-mono text-foreground">{d.ticker}</span>
+          <span className="text-muted-foreground">
+            {new Date(d.callDate).toLocaleDateString()}
+          </span>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-primary font-medium">Stress Score: {d.stressScore}</p>
+          <p className={(d.moveT5Pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+            T+5 Move: {(d.moveT5Pct ?? 0) >= 0 ? '+' : ''}
+            {Number(d.moveT5Pct ?? 0).toFixed(2)}%
+          </p>
+        </div>
       </div>
     );
   }
   return null;
 };
 
-export function EarningsStress() {
+export function EarningsStress({ className }: { className?: string }) {
   const [ticker, setTicker] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
   const [callDate, setCallDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<EarningsCallRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const [history, setHistory] = useState<any[]>([]);
-  const [compareData, setCompareData] = useState<any[]>([]);
+  const [history, setHistory] = useState<EarningsCallRecord[]>([]);
+  const [compareData, setCompareData] = useState<EarningsCallRecord[]>([]);
+  const [topStressed, setTopStressed] = useState<EarningsCallRecord[]>([]);
 
-  const fetchCompareData = useCallback(async () => {
+  const fetchMarketOverview = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/earnings/compare`);
-      const json = await res.json();
-      if (json.success) setCompareData(json.data);
+      const [compareRes, topRes] = await Promise.all([
+        fetch(`${API}/earnings/compare`),
+        fetch(`${API}/earnings/top?limit=8`),
+      ]);
+      const compareJson = await compareRes.json();
+      if (compareJson.success) setCompareData(compareJson.data ?? []);
+      const topJson = await topRes.json();
+      if (topJson.success) setTopStressed(topJson.data ?? []);
     } catch {
       /* silent */
     }
   }, []);
 
   useEffect(() => {
-    fetchCompareData();
-  }, [fetchCompareData]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [compareRes, topRes] = await Promise.all([
+          fetch(`${API}/earnings/compare`),
+          fetch(`${API}/earnings/top?limit=8`),
+        ]);
+        const compareJson = await compareRes.json();
+        if (!cancelled && compareJson.success) setCompareData(compareJson.data ?? []);
+        const topJson = await topRes.json();
+        if (!cancelled && topJson.success) setTopStressed(topJson.data ?? []);
+      } catch {
+        /* silent */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchHistory = useCallback(async (t: string) => {
+    if (!t) return;
     try {
       const res = await fetch(`${API}/earnings/${encodeURIComponent(t.toUpperCase())}`);
       const json = await res.json();
-      if (json.success) setHistory(json.data);
+      if (json.success) setHistory(json.data ?? []);
     } catch {
       /* silent */
     }
   }, []);
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!ticker || !audioUrl || !callDate) {
-      setError('Please fill in ticker, audio URL and date.');
+      setError('Please fill in ticker symbol, audio URL, and call date.');
       return;
     }
     setError(null);
@@ -250,7 +354,6 @@ export function EarningsStress() {
     setLoading(true);
     setLoadingStep(0);
 
-    // Animate steps
     const stepInterval = setInterval(() => {
       setLoadingStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1));
     }, 3000);
@@ -264,10 +367,9 @@ export function EarningsStress() {
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Analysis failed');
       setResult(json.data);
-      await fetchHistory(ticker);
-      await fetchCompareData();
-    } catch (e: any) {
-      setError(e.message || 'Unknown error');
+      await Promise.all([fetchHistory(ticker), fetchMarketOverview()]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       clearInterval(stepInterval);
       setLoading(false);
@@ -283,12 +385,12 @@ export function EarningsStress() {
       const res = await fetch(`${API}/earnings/demo`, { method: 'POST' });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Demo analysis failed');
-      setTicker(json.data.ticker || 'AAPL');
+      const demoTicker = json.data.ticker || 'AAPL';
+      setTicker(demoTicker);
       setResult(json.data);
-      await fetchHistory(json.data.ticker || 'AAPL');
-      await fetchCompareData();
-    } catch (e: any) {
-      setError(e.message || 'Demo failed');
+      await Promise.all([fetchHistory(demoTicker), fetchMarketOverview()]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Demo failed');
     } finally {
       setLoading(false);
     }
@@ -297,315 +399,451 @@ export function EarningsStress() {
   const passages: Array<{ quote: string; reason: string }> = result?.stressPassages ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-6">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <Mic className="w-7 h-7 text-blue-400" />
-          <h1 className="text-2xl font-bold">Earnings Call Stress Detector</h1>
+    <div className={cn('flex flex-col gap-6 w-full', className)}>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
+            <Mic className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Earnings Call Stress Detector
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Analyze executive speech hedging &amp; self-corrections against post-earnings T+1 and T+5 price moves.
+            </p>
+          </div>
         </div>
 
-        {/* Input Form */}
-        <div className="bg-gray-900 rounded-2xl p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-200">Analyze a Call</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block">Ticker Symbol</label>
-              <input
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
-                placeholder="e.g. AAPL"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              />
-            </div>
-            <div className="sm:col-span-1">
-              <label className="text-xs text-gray-400 mb-1 block">Audio URL</label>
-              <input
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://..."
-                value={audioUrl}
-                onChange={(e) => setAudioUrl(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block">Call Date</label>
-              <input
-                type="date"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={callDate}
-                onChange={(e) => setCallDate(e.target.value)}
-              />
-            </div>
+        <button
+          type="button"
+          onClick={handleDemo}
+          disabled={loading}
+          className="self-start sm:self-auto flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 disabled:opacity-50 px-4 py-2 rounded-xl text-xs font-semibold text-emerald-300 transition-colors"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Run Demo Call
+        </button>
+      </div>
+
+      {/* Input Form Card */}
+      <form
+        onSubmit={handleAnalyze}
+        className="bg-card border border-border rounded-xl p-6 space-y-5"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <Activity className="w-4 h-4 text-primary" />
+            Analyze Earnings Call
+          </h2>
+          <span className="text-[11px] text-muted-foreground hidden sm:inline">
+            Whisper transcription + FinBERT / LLM stress scoring
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          <div className="md:col-span-3">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Ticker Symbol
+            </label>
+            <input
+              className="w-full bg-secondary/60 border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 uppercase font-mono tracking-wider transition-colors"
+              placeholder="e.g. AAPL"
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+
+          <div className="md:col-span-4">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Audio URL
+            </label>
+            <input
+              className="w-full bg-secondary/60 border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 transition-colors"
+              placeholder="https://example.com/q4-call.mp3"
+              value={audioUrl}
+              onChange={(e) => setAudioUrl(e.target.value)}
+            />
+          </div>
+
+          <div className="md:col-span-3">
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Call Date
+            </label>
+            <input
+              type="date"
+              className="w-full bg-secondary/60 border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              value={callDate}
+              onChange={(e) => setCallDate(e.target.value)}
+            />
+          </div>
+
+          <div className="md:col-span-2">
             <button
-              onClick={handleAnalyze}
+              type="submit"
               disabled={loading}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-2 rounded-lg font-semibold transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm shadow-primary/20"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Analyzing...' : 'Analyze'}
-            </button>
-            <button
-              type="button"
-              onClick={handleDemo}
-              disabled={loading}
-              className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-semibold text-emerald-300 transition-colors"
-            >
-              Run Demo Call
+              {loading ? 'Analyzing…' : 'Analyze'}
             </button>
           </div>
-
-          {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm">
-              <AlertTriangle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
         </div>
 
-        {/* Loading Steps */}
-        <AnimatePresence>
-          {loading && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="bg-gray-900 rounded-2xl p-6 space-y-3"
-            >
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/25 px-3.5 py-2.5 text-xs text-red-400">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+      </form>
+
+      {/* Loading Steps */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="bg-card border border-border rounded-xl p-6 space-y-3"
+          >
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              Processing Pipeline
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {LOADING_STEPS.map((step, i) => (
-                <div key={step} className="flex items-center gap-3">
+                <div
+                  key={step}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border transition-colors',
+                    i < loadingStep
+                      ? 'bg-emerald-500/10 border-emerald-500/25'
+                      : i === loadingStep
+                      ? 'bg-primary/10 border-primary/30'
+                      : 'bg-secondary/20 border-border'
+                  )}
+                >
                   <div
-                    className={`w-3 h-3 rounded-full flex-shrink-0 transition-colors duration-500 ${
+                    className={cn(
+                      'w-2.5 h-2.5 rounded-full shrink-0',
                       i < loadingStep
-                        ? 'bg-green-500'
+                        ? 'bg-emerald-400'
                         : i === loadingStep
-                        ? 'bg-blue-400 animate-pulse'
-                        : 'bg-gray-700'
-                    }`}
+                        ? 'bg-primary animate-pulse'
+                        : 'bg-secondary'
+                    )}
                   />
                   <span
-                    className={`text-sm ${
-                      i <= loadingStep ? 'text-white' : 'text-gray-500'
-                    }`}
+                    className={cn(
+                      'text-xs font-medium',
+                      i <= loadingStep ? 'text-foreground' : 'text-muted-foreground'
+                    )}
                   >
                     {step}
                   </span>
                 </div>
               ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Results */}
-        <AnimatePresence>
-          {result && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="space-y-6"
-            >
-              {/* Stress Gauge + Stats */}
-              <div className="bg-gray-900 rounded-2xl p-6">
-                <h2 className="text-lg font-semibold mb-4">Analysis Results — {result.ticker}</h2>
-                <div className="flex flex-wrap items-center justify-around gap-6">
-                  <StressGauge score={result.stressScore ?? 0} />
-                  <div className="flex flex-wrap gap-4">
+      {/* Results Section */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="space-y-6"
+          >
+            {/* Gauge + Metrics + Price Impact */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-5 bg-card border border-border rounded-xl p-6 flex flex-col items-center justify-center">
+                <div className="w-full flex items-center justify-between mb-4">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Analysis Result
+                  </span>
+                  <span className="font-mono font-bold text-sm px-2.5 py-0.5 rounded-md bg-secondary text-foreground border border-border">
+                    {result.ticker}
+                  </span>
+                </div>
+                <StressGauge score={result.stressScore ?? 0} />
+              </div>
+
+              <div className="lg:col-span-7 bg-card border border-border rounded-xl p-6 flex flex-col justify-between gap-5">
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Linguistic &amp; Sentiment Breakdown
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <StatCard
                       label="Hedge Words"
                       value={result.hedgeWordCount ?? 0}
-                      icon={<AlertTriangle className="w-5 h-5" />}
+                      icon={<AlertTriangle className="w-4 h-4" />}
                     />
                     <StatCard
                       label="Self-Corrections"
                       value={result.correctionCount ?? 0}
-                      icon={<RefreshCw className="w-5 h-5" />}
+                      icon={<RefreshCw className="w-4 h-4" />}
                     />
                     <StatCard
                       label="Sentiment"
                       value={result.sentimentLabel ?? '—'}
-                      icon={<BarChart2 className="w-5 h-5" />}
+                      icon={<BarChart2 className="w-4 h-4" />}
                     />
                   </div>
                 </div>
-              </div>
 
-              {/* Price Impact */}
-              <div className="bg-gray-900 rounded-2xl p-6">
-                <h2 className="text-lg font-semibold mb-4">Price Impact</h2>
-                <div className="flex gap-4 flex-wrap">
-                  <PriceBadge label="T+1 Move" pct={result.moveT1Pct} />
-                  <PriceBadge label="T+5 Move" pct={result.moveT5Pct} />
-                  {result.priceT0 && (
-                    <div className="flex flex-col items-center bg-gray-800 rounded-xl p-4 min-w-[100px]">
-                      <span className="text-xs text-gray-400">Price at Call</span>
-                      <span className="text-lg font-bold text-white mt-1">
-                        ${Number(result.priceT0).toFixed(2)}
+                <div>
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Post-Call Price Impact
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <PriceBadge label="T+1 Move" pct={result.moveT1Pct} />
+                    <PriceBadge label="T+5 Move" pct={result.moveT5Pct} />
+                    <div className="flex flex-col justify-between bg-secondary/25 border border-border rounded-xl p-4">
+                      <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                        Price at Call
+                      </span>
+                      <span className="text-xl font-bold text-foreground mt-2">
+                        {result.priceT0 ? `$${Number(result.priceT0).toFixed(2)}` : '—'}
                       </span>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Stress Passages */}
-              {passages.length > 0 && (
-                <div className="bg-gray-900 rounded-2xl p-6">
-                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-yellow-400" /> Stress Passages
-                  </h2>
-                  <div className="space-y-3">
-                    {passages.map((p, i) => (
-                      <div
-                        key={i}
-                        className="border-l-4 border-red-500 pl-4 bg-red-900/20 rounded-r-lg py-3 pr-3"
-                      >
-                        <p className="text-red-300 italic text-sm mb-1">"{p.quote}"</p>
-                        <p className="text-gray-400 text-xs">{p.reason}</p>
-                      </div>
-                    ))}
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
 
-              {/* Transcript Accordion */}
-              {result.transcript && (
-                <div className="bg-gray-900 rounded-2xl p-6">
-                  <button
-                    onClick={() => setTranscriptOpen((o) => !o)}
-                    className="flex items-center justify-between w-full"
-                  >
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-blue-400" /> Full Transcript
-                    </h2>
-                    {transcriptOpen ? (
-                      <ChevronUp className="w-5 h-5 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-400" />
-                    )}
-                  </button>
-                  <AnimatePresence>
-                    {transcriptOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="mt-4 max-h-96 overflow-y-auto pr-2">
-                          <HighlightedTranscript
-                            transcript={result.transcript}
-                            passages={passages}
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+            {/* Stress Passages */}
+            {passages.length > 0 && (
+              <div className="bg-card border border-border rounded-xl p-6">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  Flagged Stress Passages ({passages.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {passages.map((p, i) => (
+                    <div
+                      key={i}
+                      className="border-l-2 border-red-500 pl-4 bg-red-500/10 rounded-r-xl py-3 pr-4"
+                    >
+                      <p className="text-red-300 italic text-sm mb-1.5">&ldquo;{p.quote}&rdquo;</p>
+                      <p className="text-muted-foreground text-xs">{p.reason}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </div>
+            )}
 
-        {/* History Table */}
-        {history.length > 0 && (
-          <div className="bg-gray-900 rounded-2xl p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              History — {ticker.toUpperCase()}
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            {/* Transcript Accordion */}
+            {result.transcript && (
+              <div className="bg-card border border-border rounded-xl p-6">
+                <button
+                  onClick={() => setTranscriptOpen((o) => !o)}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Full Call Transcript
+                  </h2>
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    {transcriptOpen ? 'Collapse' : 'Expand'}
+                    {transcriptOpen ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </span>
+                </button>
+                <AnimatePresence>
+                  {transcriptOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 pt-4 border-t border-border max-h-96 overflow-y-auto custom-scrollbar pr-2">
+                        <HighlightedTranscript
+                          transcript={result.transcript}
+                          passages={passages}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom Analytics Grid: Scatter Chart + History / Top Stressed Leaderboard */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* Scatter Chart */}
+        <div
+          className={cn(
+            'bg-card border border-border rounded-xl p-6 flex flex-col',
+            history.length > 0 || topStressed.length > 0 ? 'xl:col-span-7' : 'xl:col-span-12'
+          )}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                Stress Score vs. T+5 Price Move
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Cross-call correlation between vocal stress index and 5-day post-earnings return
+              </p>
+            </div>
+            <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-secondary border border-border text-muted-foreground">
+              {compareData.length} call{compareData.length !== 1 ? 's' : ''} plotted
+            </span>
+          </div>
+
+          {compareData.length > 0 ? (
+            <div className="h-[320px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 12, right: 20, bottom: 28, left: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeDasharray="4 4" />
+                  <XAxis
+                    type="number"
+                    dataKey="stressScore"
+                    domain={[0, 100]}
+                    stroke="#52525b"
+                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                  >
+                    <Label
+                      value="Stress Score"
+                      offset={-14}
+                      position="insideBottom"
+                      fill="#a1a1aa"
+                      fontSize={11}
+                    />
+                  </XAxis>
+                  <YAxis
+                    type="number"
+                    dataKey="moveT5Pct"
+                    stroke="#52525b"
+                    tick={{ fill: '#a1a1aa', fontSize: 11 }}
+                    tickFormatter={(v) => `${v}%`}
+                  >
+                    <Label
+                      value="T+5 Move %"
+                      angle={-90}
+                      position="insideLeft"
+                      fill="#a1a1aa"
+                      fontSize={11}
+                      style={{ textAnchor: 'middle' }}
+                    />
+                  </YAxis>
+                  <Tooltip
+                    content={<CustomScatterTooltip />}
+                    cursor={{ strokeDasharray: '3 3', stroke: 'rgba(190,242,100,0.4)' }}
+                  />
+                  <Scatter data={compareData} fill="#bef264" fillOpacity={0.9} />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[300px] flex flex-col items-center justify-center text-center rounded-xl border border-dashed border-border bg-secondary/10 px-6">
+              <BarChart2 className="w-8 h-8 text-muted-foreground/50 mb-2" />
+              <p className="text-sm font-medium text-foreground">No comparison points yet</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                Analyze an earnings call or click Run Demo Call above to populate the stress-vs-return scatter plot.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Ticker History or Top Stressed Calls */}
+        {(history.length > 0 || topStressed.length > 0) && (
+          <div className="xl:col-span-5 bg-card border border-border rounded-xl p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Award className="w-4 h-4 text-primary" />
+                {history.length > 0
+                  ? `History — ${ticker.toUpperCase()}`
+                  : 'Highest Stress Calls'}
+              </h2>
+              <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                {(history.length > 0 ? history : topStressed).length} records
+              </span>
+            </div>
+
+            <div className="overflow-x-auto flex-1">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-800">
-                    <th className="text-left pb-2">Ticker</th>
-                    <th className="text-left pb-2">Date</th>
-                    <th className="text-right pb-2">Stress</th>
-                    <th className="text-right pb-2">T+5 Move</th>
-                    <th className="text-right pb-2">Sentiment</th>
+                  <tr className="text-muted-foreground border-b border-border">
+                    <th className="text-left pb-2.5 font-semibold uppercase tracking-wider text-[10px]">
+                      Ticker
+                    </th>
+                    <th className="text-left pb-2.5 font-semibold uppercase tracking-wider text-[10px]">
+                      Date
+                    </th>
+                    <th className="text-right pb-2.5 font-semibold uppercase tracking-wider text-[10px]">
+                      Stress
+                    </th>
+                    <th className="text-right pb-2.5 font-semibold uppercase tracking-wider text-[10px]">
+                      T+5 Move
+                    </th>
+                    <th className="text-right pb-2.5 font-semibold uppercase tracking-wider text-[10px]">
+                      Sentiment
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((h) => (
-                    <tr
-                      key={h.id}
-                      className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
-                    >
-                      <td className="py-2 font-semibold">{h.ticker}</td>
-                      <td className="py-2 text-gray-400">
-                        {new Date(h.callDate).toLocaleDateString()}
-                      </td>
-                      <td className="py-2 text-right">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                            (h.stressScore ?? 0) < 30
-                              ? 'bg-green-900/60 text-green-400'
-                              : (h.stressScore ?? 0) < 60
-                              ? 'bg-yellow-900/60 text-yellow-400'
-                              : 'bg-red-900/60 text-red-400'
-                          }`}
-                        >
-                          {h.stressScore ?? '—'}
-                        </span>
-                      </td>
-                      <td
-                        className={`py-2 text-right font-semibold ${
-                          h.moveT5Pct == null
-                            ? 'text-gray-500'
-                            : h.moveT5Pct >= 0
-                            ? 'text-green-400'
-                            : 'text-red-400'
-                        }`}
+                  {(history.length > 0 ? history : topStressed).map((h) => {
+                    const tone = getStressTone(h.stressScore ?? 0);
+                    return (
+                      <tr
+                        key={h.id}
+                        onClick={() => {
+                          setTicker(h.ticker);
+                          setResult(h);
+                        }}
+                        className="border-b border-border/60 last:border-0 hover:bg-secondary/30 transition-colors cursor-pointer"
                       >
-                        {h.moveT5Pct != null
-                          ? `${h.moveT5Pct >= 0 ? '+' : ''}${Number(h.moveT5Pct).toFixed(2)}%`
-                          : '—'}
-                      </td>
-                      <td className="py-2 text-right text-gray-400 capitalize">
-                        {h.sentimentLabel ?? '—'}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="py-3 font-mono font-bold text-foreground">{h.ticker}</td>
+                        <td className="py-3 text-muted-foreground">
+                          {new Date(h.callDate).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span
+                            className={cn(
+                              'px-2 py-0.5 rounded-full border text-[11px] font-bold',
+                              tone.badge
+                            )}
+                          >
+                            {h.stressScore ?? '—'}
+                          </span>
+                        </td>
+                        <td
+                          className={cn(
+                            'py-3 text-right font-semibold',
+                            h.moveT5Pct == null
+                              ? 'text-muted-foreground'
+                              : h.moveT5Pct >= 0
+                              ? 'text-emerald-400'
+                              : 'text-red-400'
+                          )}
+                        >
+                          {h.moveT5Pct != null
+                            ? `${h.moveT5Pct >= 0 ? '+' : ''}${Number(h.moveT5Pct).toFixed(2)}%`
+                            : '—'}
+                        </td>
+                        <td className="py-3 text-right text-muted-foreground capitalize">
+                          {h.sentimentLabel ?? '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-
-        {/* Scatter Chart */}
-        {compareData.length > 0 && (
-          <div className="bg-gray-900 rounded-2xl p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              Stress Score vs. T+5 Price Move
-            </h2>
-            <ResponsiveContainer width="100%" height={320}>
-              <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  type="number"
-                  dataKey="stressScore"
-                  domain={[0, 100]}
-                  stroke="#6b7280"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                >
-                  <Label value="Stress Score" offset={-10} position="insideBottom" fill="#9ca3af" fontSize={12} />
-                </XAxis>
-                <YAxis
-                  type="number"
-                  dataKey="moveT5Pct"
-                  stroke="#6b7280"
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
-                  tickFormatter={(v) => `${v}%`}
-                >
-                  <Label value="T+5 Move %" angle={-90} position="insideLeft" fill="#9ca3af" fontSize={12} />
-                </YAxis>
-                <Tooltip content={<CustomScatterTooltip />} />
-                <Scatter
-                  data={compareData}
-                  fill="#60a5fa"
-                  opacity={0.8}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
           </div>
         )}
       </div>

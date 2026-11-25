@@ -1,26 +1,56 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle,
-  CheckCircle,
-  ChevronDown,
+  ArrowRight,
+  CheckCircle2,
+  Database,
+  FileSpreadsheet,
   Network,
+  Plus,
   RefreshCw,
   Search,
   ShieldAlert,
+  Sparkles,
   Upload,
   ZoomIn,
-  Plus,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+import type { ComponentType } from 'react';
+
+interface ForceGraphProps {
+  graphData: {
+    nodes: { id: string; label?: string; x?: number; y?: number }[];
+    links: { source: string; target: string; amount: number; date: string }[];
+  };
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
+  nodeLabel?: (node: GraphCanvasNode) => string;
+  nodeColor?: (node: GraphCanvasNode) => string;
+  nodeRelSize?: number;
+  linkColor?: () => string;
+  linkDirectionalArrowLength?: number;
+  linkDirectionalArrowRelPos?: number;
+  linkLabel?: (link: GraphEdge) => string;
+  linkWidth?: number;
+  onNodeClick?: (node: GraphCanvasNode) => void;
+  nodeCanvasObject?: (
+    node: GraphCanvasNode,
+    ctx: CanvasRenderingContext2D,
+    globalScale: number
+  ) => void;
+}
 
 // SSR-safe import for react-force-graph-2d
 const ForceGraph2D = dynamic(
   () => import('react-force-graph-2d'),
   { ssr: false }
-) as any;
+) as unknown as ComponentType<ForceGraphProps>;
 
 const API_BASE = 'http://localhost:4000/api';
 
@@ -29,7 +59,7 @@ const API_BASE = 'http://localhost:4000/api';
 interface FraudRing {
   id: string;
   nodes: string[];
-  edges: any[];
+  edges: GraphEdge[];
   riskScore: number;
   totalMoved: number;
   status: string;
@@ -39,6 +69,13 @@ interface FraudRing {
 interface GraphNode {
   id: string;
   label: string;
+}
+
+interface GraphCanvasNode {
+  id: string;
+  label?: string;
+  x?: number;
+  y?: number;
 }
 
 interface GraphEdge {
@@ -55,16 +92,27 @@ interface GraphData {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function riskColor(score: number) {
-  if (score >= 70) return 'bg-red-500 text-white';
-  if (score >= 40) return 'bg-orange-400 text-white';
-  return 'bg-green-500 text-white';
+function riskBadgeStyle(score: number) {
+  if (score >= 70) return 'bg-red-500/15 text-red-400 border-red-500/30';
+  if (score >= 40) return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+  return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
 }
 
 function riskLabel(score: number) {
-  if (score >= 70) return 'High';
-  if (score >= 40) return 'Medium';
-  return 'Low';
+  if (score >= 70) return 'High Risk';
+  if (score >= 40) return 'Medium Risk';
+  return 'Low Risk';
+}
+
+function statusBadgeStyle(status: string) {
+  switch (status) {
+    case 'INVESTIGATED':
+      return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+    case 'CLEARED':
+      return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    default:
+      return 'bg-red-500/15 text-red-300 border-red-500/30';
+  }
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -74,12 +122,14 @@ export function FraudGraph({ className }: { className?: string }) {
 
   // Detect Rings state
   const [rings, setRings] = useState<FraudRing[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'INVESTIGATED' | 'CLEARED'>('ALL');
   const [detecting, setDetecting] = useState(false);
   const [detectError, setDetectError] = useState('');
 
   // CSV upload state
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvResult, setCsvResult] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Manual ingest state
@@ -98,6 +148,45 @@ export function FraudGraph({ className }: { className?: string }) {
   const [graphLoading, setGraphLoading] = useState(false);
   const [graphError, setGraphError] = useState('');
   const [highlightNode, setHighlightNode] = useState('');
+  const graphContainerRef = useRef<HTMLDivElement>(null);
+  const [graphWidth, setGraphWidth] = useState(720);
+
+  // Measure graph container width responsively
+  useEffect(() => {
+    const el = graphContainerRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      if (el.clientWidth > 0) setGraphWidth(el.clientWidth);
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeTab, graphData]);
+
+  // Derived KPI metrics
+  const stats = useMemo(() => {
+    const highRisk = rings.filter((r) => r.riskScore >= 70).length;
+    const openCount = rings.filter((r) => r.status === 'OPEN').length;
+    const totalVolume = rings.reduce((acc, r) => acc + (Number(r.totalMoved) || 0), 0);
+    return {
+      total: rings.length,
+      highRisk,
+      openCount,
+      totalVolume,
+    };
+  }, [rings]);
+
+  const filteredRings = useMemo(() => {
+    if (statusFilter === 'ALL') return rings;
+    return rings.filter((r) => r.status === statusFilter);
+  }, [rings, statusFilter]);
+
+  const sampleAccounts = useMemo(() => {
+    const set = new Set<string>();
+    rings.forEach((r) => r.nodes.forEach((n) => set.add(n)));
+    return Array.from(set).slice(0, 6);
+  }, [rings]);
 
   // ── Detect rings ──────────────────────────────────────────────────────────
 
@@ -109,8 +198,8 @@ export function FraudGraph({ className }: { className?: string }) {
       const json = await res.json();
       if (!json.success) throw new Error(json.message || 'Detection failed');
       setRings(json.data ?? []);
-    } catch (err: any) {
-      setDetectError(err.message ?? 'Unknown error');
+    } catch (err: unknown) {
+      setDetectError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setDetecting(false);
     }
@@ -146,14 +235,15 @@ export function FraudGraph({ className }: { className?: string }) {
       setRings(detectJson.data ?? []);
       setAccountId('MULE-A');
       setCsvResult('✓ Loaded 9 demo transactions & ran ring detection');
-    } catch (err: any) {
-      setDetectError(err.message ?? 'Failed to load demo data');
+    } catch (err: unknown) {
+      setDetectError(err instanceof Error ? err.message : 'Failed to load demo data');
     } finally {
       setDetecting(false);
     }
   };
 
   const fetchRings = async (status?: string) => {
+    setDetectError('');
     try {
       const url = status
         ? `${API_BASE}/fraud/rings?status=${status}`
@@ -161,7 +251,9 @@ export function FraudGraph({ className }: { className?: string }) {
       const res = await fetch(url);
       const json = await res.json();
       if (json.success) setRings(json.data ?? []);
-    } catch {}
+    } catch (err: unknown) {
+      setDetectError(err instanceof Error ? err.message : 'Failed to load saved rings');
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
@@ -182,9 +274,7 @@ export function FraudGraph({ className }: { className?: string }) {
 
   // ── CSV upload ────────────────────────────────────────────────────────────
 
-  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadCsvFile = async (file: File) => {
     setCsvUploading(true);
     setCsvResult('');
     try {
@@ -196,16 +286,29 @@ export function FraudGraph({ className }: { className?: string }) {
       });
       const json = await res.json();
       if (json.success) {
-        setCsvResult(`✓ Ingested ${json.data.ingested} transactions from CSV`);
+        setCsvResult(`✓ Ingested ${json.data.ingested} transactions from ${file.name}`);
       } else {
         setCsvResult(`✗ ${json.message}`);
       }
-    } catch (err: any) {
-      setCsvResult(`✗ ${err.message}`);
+    } catch (err: unknown) {
+      setCsvResult(`✗ ${err instanceof Error ? err.message : 'Upload failed'}`);
     } finally {
       setCsvUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadCsvFile(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await uploadCsvFile(file);
   };
 
   // ── Manual ingest ─────────────────────────────────────────────────────────
@@ -231,13 +334,13 @@ export function FraudGraph({ className }: { className?: string }) {
       });
       const json = await res.json();
       if (json.success) {
-        setIngestMsg(`✓ Transaction added`);
+        setIngestMsg('✓ Transaction added to ledger');
         setForm({ fromAccount: '', toAccount: '', amount: '', date: '' });
       } else {
         setIngestMsg(`✗ ${json.message}`);
       }
-    } catch (err: any) {
-      setIngestMsg(`✗ ${err.message}`);
+    } catch (err: unknown) {
+      setIngestMsg(`✗ ${err instanceof Error ? err.message : 'Ingest failed'}`);
     } finally {
       setIngesting(false);
     }
@@ -265,8 +368,8 @@ export function FraudGraph({ className }: { className?: string }) {
           date: e.date,
         })),
       });
-    } catch (err: any) {
-      setGraphError(err.message ?? 'Unknown error');
+    } catch (err: unknown) {
+      setGraphError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setGraphLoading(false);
     }
@@ -274,8 +377,14 @@ export function FraudGraph({ className }: { className?: string }) {
 
   const handleLoadGraph = () => loadGraph(accountId.trim());
 
+  const inspectAccount = (id: string) => {
+    setAccountId(id);
+    setActiveTab('graph');
+    loadGraph(id);
+  };
+
   const handleNodeClick = useCallback(
-    (node: any) => {
+    (node: GraphCanvasNode) => {
       setAccountId(node.id);
       loadGraph(node.id);
     },
@@ -285,36 +394,88 @@ export function FraudGraph({ className }: { className?: string }) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className={`bg-gray-900 rounded-xl border border-gray-700 p-5 ${className ?? ''}`}>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <ShieldAlert className="text-red-400 w-6 h-6" />
-        <h2 className="text-white font-bold text-lg">Money Mule Ring Detector</h2>
+    <div className={cn('flex flex-col gap-6 w-full', className)}>
+      {/* Top Header & Mode Switcher */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-border">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+            <ShieldAlert className="text-red-400 w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Money Mule Ring Detector
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Graph cycle analysis for circular layering, smurfing hubs, and rapid pass-through accounts.
+            </p>
+          </div>
+        </div>
+
+        {/* Segmented Tab Switcher + Primary Actions */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center p-1 rounded-xl bg-secondary/70 border border-border">
+            <button
+              onClick={() => setActiveTab('detect')}
+              className={cn(
+                'flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                activeTab === 'detect'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Detect Rings
+            </button>
+            <button
+              onClick={() => setActiveTab('graph')}
+              className={cn(
+                'flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                activeTab === 'graph'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Network className="w-3.5 h-3.5" />
+              Account Graph
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {(['detect', 'graph'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-            }`}
-          >
-            {tab === 'detect' ? (
-              <span className="flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" /> Detect Rings
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5">
-                <Network className="w-4 h-4" /> Account Graph
-              </span>
-            )}
-          </button>
-        ))}
+      {/* KPI Summary Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-xl bg-card border border-border p-4 flex flex-col gap-1">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Detected Rings
+          </span>
+          <span className="text-2xl font-bold text-foreground">{stats.total}</span>
+          <span className="text-xs text-muted-foreground">Active cycle clusters</span>
+        </div>
+        <div className="rounded-xl bg-card border border-border p-4 flex flex-col gap-1">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+            High Risk (70+)
+          </span>
+          <span className={cn('text-2xl font-bold', stats.highRisk > 0 ? 'text-red-400' : 'text-foreground')}>
+            {stats.highRisk}
+          </span>
+          <span className="text-xs text-muted-foreground">Priority escalation</span>
+        </div>
+        <div className="rounded-xl bg-card border border-border p-4 flex flex-col gap-1">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Flagged Volume
+          </span>
+          <span className="text-2xl font-bold text-primary">
+            ${stats.totalVolume.toLocaleString()}
+          </span>
+          <span className="text-xs text-muted-foreground">Aggregate ring flow</span>
+        </div>
+        <div className="rounded-xl bg-card border border-border p-4 flex flex-col gap-1">
+          <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+            Open Cases
+          </span>
+          <span className="text-2xl font-bold text-foreground">{stats.openCount}</span>
+          <span className="text-xs text-muted-foreground">Pending review</span>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -325,175 +486,353 @@ export function FraudGraph({ className }: { className?: string }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
           >
-            {/* Run Detection */}
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <button
-                onClick={runDetection}
-                disabled={detecting}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                <RefreshCw className={`w-4 h-4 ${detecting ? 'animate-spin' : ''}`} />
-                {detecting ? 'Detecting…' : 'Run Detection'}
-              </button>
-              <button
-                onClick={loadDemoData}
-                disabled={detecting}
-                className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 disabled:opacity-50 text-emerald-300 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Load Demo Data
-              </button>
-              <button
-                onClick={() => fetchRings()}
-                className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg text-sm transition-colors"
-              >
-                Load Saved Rings
-              </button>
-            </div>
-
-            {detectError && (
-              <p className="text-red-400 text-sm mb-3">{detectError}</p>
-            )}
-
-            {/* Ring Cards */}
-            {rings.length > 0 && (
-              <div className="space-y-3 mb-6 max-h-72 overflow-y-auto pr-1">
-                {rings.map((ring) => (
-                  <motion.div
-                    key={ring.id}
-                    initial={{ opacity: 0, scale: 0.97 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-gray-800 border border-gray-700 rounded-lg p-3"
+            {/* Left Column: Detected Rings Feed */}
+            <div className="lg:col-span-7 rounded-xl bg-card border border-border p-5 flex flex-col gap-4 min-h-[460px]">
+              {/* Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-border">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={runDetection}
+                    disabled={detecting}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground px-4 py-2 rounded-xl text-xs font-semibold transition-colors shadow-sm shadow-primary/15"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${riskColor(ring.riskScore)}`}
-                      >
-                        {riskLabel(ring.riskScore)} Risk — {ring.riskScore}
-                      </span>
-                      <select
-                        value={ring.status}
-                        onChange={(e) => updateStatus(ring.id, e.target.value)}
-                        className="bg-gray-700 text-gray-200 text-xs rounded px-2 py-1 border border-gray-600"
-                      >
-                        <option value="OPEN">OPEN</option>
-                        <option value="INVESTIGATED">INVESTIGATED</option>
-                        <option value="CLEARED">CLEARED</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {ring.nodes.map((n) => (
-                        <span
-                          key={n}
-                          className="bg-gray-700 text-gray-300 text-xs px-2 py-0.5 rounded-full font-mono"
-                        >
-                          {n}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="text-gray-400 text-xs">
-                      Total moved:{' '}
-                      <span className="text-white font-semibold">
-                        ${ring.totalMoved.toLocaleString()}
-                      </span>
-                      {' · '}
-                      {new Date(ring.detectedAt).toLocaleDateString()}
-                    </p>
-                  </motion.div>
-                ))}
+                    <RefreshCw className={`w-3.5 h-3.5 ${detecting ? 'animate-spin' : ''}`} />
+                    {detecting ? 'Scanning Graph…' : 'Run Detection'}
+                  </button>
+                  <button
+                    onClick={loadDemoData}
+                    disabled={detecting}
+                    className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 disabled:opacity-50 text-emerald-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Load Demo Data
+                  </button>
+                  <button
+                    onClick={() => fetchRings()}
+                    className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 border border-border text-foreground px-3.5 py-2 rounded-xl text-xs font-medium transition-colors"
+                  >
+                    <Database className="w-3.5 h-3.5 text-muted-foreground" />
+                    Load Saved
+                  </button>
+                </div>
+
+                {/* Status Filter Pills */}
+                <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border">
+                  {(['ALL', 'OPEN', 'INVESTIGATED', 'CLEARED'] as const).map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setStatusFilter(status)}
+                      className={cn(
+                        'px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors',
+                        statusFilter === status
+                          ? 'bg-secondary text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
 
-            {rings.length === 0 && !detecting && (
-              <p className="text-gray-500 text-sm mb-6">
-                No rings loaded. Click "Run Detection" to scan transactions.
-              </p>
-            )}
-
-            {/* Upload CSV */}
-            <div className="border border-dashed border-gray-600 rounded-lg p-4 mb-5">
-              <p className="text-gray-400 text-sm font-medium mb-2 flex items-center gap-2">
-                <Upload className="w-4 h-4" /> Upload CSV
-              </p>
-              <p className="text-gray-500 text-xs mb-3">
-                Headers: fromAccount, toAccount, amount, currency, date, description
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleCSVUpload}
-                disabled={csvUploading}
-                className="text-sm text-gray-400 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-indigo-600 file:text-white file:text-xs file:cursor-pointer hover:file:bg-indigo-500"
-              />
-              {csvUploading && (
-                <p className="text-indigo-400 text-xs mt-2 animate-pulse">Uploading…</p>
+              {detectError && (
+                <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/25 px-3.5 py-2.5 text-xs text-red-400">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{detectError}</span>
+                </div>
               )}
-              {csvResult && (
-                <p
-                  className={`text-xs mt-2 ${
-                    csvResult.startsWith('✓') ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {csvResult}
-                </p>
+
+              {/* Ring Cards or Empty State */}
+              {filteredRings.length > 0 ? (
+                <div className="space-y-3 max-h-[540px] overflow-y-auto custom-scrollbar pr-1">
+                  {filteredRings.map((ring) => (
+                    <motion.div
+                      key={ring.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-secondary/20 hover:bg-secondary/35 border border-border rounded-xl p-4 transition-colors"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              'text-[11px] font-bold px-2.5 py-0.5 rounded-full border',
+                              riskBadgeStyle(ring.riskScore)
+                            )}
+                          >
+                            {riskLabel(ring.riskScore)} · {ring.riskScore}
+                          </span>
+                          <span
+                            className={cn(
+                              'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border',
+                              statusBadgeStyle(ring.status)
+                            )}
+                          >
+                            {ring.status}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={ring.status}
+                            onChange={(e) => updateStatus(ring.id, e.target.value)}
+                            aria-label="Update ring status"
+                            className="bg-secondary text-foreground text-xs rounded-lg px-2.5 py-1 border border-border focus:outline-none focus:border-primary/50"
+                          >
+                            <option value="OPEN">OPEN</option>
+                            <option value="INVESTIGATED">INVESTIGATED</option>
+                            <option value="CLEARED">CLEARED</option>
+                          </select>
+                          {ring.nodes[0] && (
+                            <button
+                              onClick={() => inspectAccount(ring.nodes[0])}
+                              className="flex items-center gap-1 text-xs font-medium text-primary hover:underline px-2 py-1"
+                              title="Open in Account Graph"
+                            >
+                              <Network className="w-3.5 h-3.5" />
+                              Graph
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Account Cycle Flow */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                        {ring.nodes.map((n, idx) => (
+                          <div key={`${n}-${idx}`} className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => inspectAccount(n)}
+                              className="bg-secondary/80 hover:bg-primary/20 hover:text-primary hover:border-primary/40 border border-border text-foreground text-xs px-2.5 py-1 rounded-lg font-mono transition-colors"
+                              title={`Inspect ${n} graph`}
+                            >
+                              {n}
+                            </button>
+                            {idx < ring.nodes.length - 1 && (
+                              <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2.5 border-t border-border text-xs text-muted-foreground">
+                        <span>
+                          Total moved:{' '}
+                          <span className="text-foreground font-semibold">
+                            ${ring.totalMoved.toLocaleString()}
+                          </span>
+                        </span>
+                        <span>
+                          Detected {new Date(ring.detectedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                !detecting && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center py-14 px-6 rounded-xl border border-dashed border-border bg-secondary/10">
+                    <div className="h-12 w-12 rounded-2xl bg-secondary/60 border border-border flex items-center justify-center mb-3">
+                      <Network className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {rings.length === 0 ? 'No Mule Rings Detected Yet' : `No ${statusFilter} Rings`}
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-sm mt-1.5 mb-5">
+                      {rings.length === 0
+                        ? 'Upload a CSV ledger, add transactions manually, or load the synthetic demo ring to scan for circular money flow.'
+                        : 'Try switching the status filter above to inspect other detected rings.'}
+                    </p>
+                    {rings.length === 0 && (
+                      <div className="flex flex-wrap items-center justify-center gap-2.5">
+                        <button
+                          onClick={loadDemoData}
+                          disabled={detecting}
+                          className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Load Demo Ring & Scan
+                        </button>
+                        <button
+                          onClick={runDetection}
+                          disabled={detecting}
+                          className="flex items-center gap-1.5 bg-secondary hover:bg-secondary/80 border border-border text-foreground px-4 py-2 rounded-xl text-xs font-medium transition-colors"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Scan Existing Ledger
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
               )}
             </div>
 
-            {/* Manual Transaction Form */}
-            <div className="bg-gray-800 rounded-lg p-4">
-              <p className="text-gray-300 text-sm font-medium mb-3 flex items-center gap-2">
-                <Plus className="w-4 h-4" /> Add Transaction Manually
-              </p>
-              <form onSubmit={handleIngest} className="grid grid-cols-2 gap-2">
-                <input
-                  required
-                  placeholder="From Account"
-                  value={form.fromAccount}
-                  onChange={(e) => setForm((p) => ({ ...p, fromAccount: e.target.value }))}
-                  className="bg-gray-700 text-white text-sm rounded px-3 py-2 placeholder-gray-500 border border-gray-600 focus:outline-none focus:border-indigo-500"
-                />
-                <input
-                  required
-                  placeholder="To Account"
-                  value={form.toAccount}
-                  onChange={(e) => setForm((p) => ({ ...p, toAccount: e.target.value }))}
-                  className="bg-gray-700 text-white text-sm rounded px-3 py-2 placeholder-gray-500 border border-gray-600 focus:outline-none focus:border-indigo-500"
-                />
-                <input
-                  required
-                  type="number"
-                  step="0.01"
-                  placeholder="Amount"
-                  value={form.amount}
-                  onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                  className="bg-gray-700 text-white text-sm rounded px-3 py-2 placeholder-gray-500 border border-gray-600 focus:outline-none focus:border-indigo-500"
-                />
-                <input
-                  required
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                  className="bg-gray-700 text-white text-sm rounded px-3 py-2 placeholder-gray-500 border border-gray-600 focus:outline-none focus:border-indigo-500"
-                />
-                <button
-                  type="submit"
-                  disabled={ingesting}
-                  className="col-span-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white py-2 rounded text-sm font-medium transition-colors"
+            {/* Right Column: Data Ingestion (CSV + Manual) */}
+            <div className="lg:col-span-5 flex flex-col gap-6">
+              {/* CSV Dropzone Card */}
+              <div className="rounded-xl bg-card border border-border p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-primary" />
+                    Batch CSV Upload
+                  </h2>
+                  <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+                    Max 10 MB
+                  </span>
+                </div>
+
+                <label
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  className={cn(
+                    'flex flex-col items-center justify-center text-center rounded-xl border border-dashed p-6 cursor-pointer transition-all',
+                    isDragging
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-secondary/15 hover:bg-secondary/30 hover:border-white/20'
+                  )}
                 >
-                  {ingesting ? 'Adding…' : 'Add Transaction'}
-                </button>
-              </form>
-              {ingestMsg && (
-                <p
-                  className={`text-xs mt-2 ${
-                    ingestMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'
-                  }`}
-                >
-                  {ingestMsg}
-                </p>
-              )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={handleCSVUpload}
+                    disabled={csvUploading}
+                    className="sr-only"
+                  />
+                  <div className="h-10 w-10 rounded-xl bg-secondary border border-border flex items-center justify-center mb-3">
+                    {csvUploading ? (
+                      <RefreshCw className="w-4 h-4 text-primary animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 text-primary" />
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-foreground">
+                    {csvUploading ? 'Uploading & parsing CSV…' : 'Click to choose CSV or drag & drop'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Required columns below
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-1.5 mt-3">
+                    {['fromAccount', 'toAccount', 'amount', 'currency', 'date', 'description'].map(
+                      (col) => (
+                        <span
+                          key={col}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded bg-secondary text-muted-foreground border border-border"
+                        >
+                          {col}
+                        </span>
+                      )
+                    )}
+                  </div>
+                </label>
+
+                {csvResult && (
+                  <div
+                    className={cn(
+                      'mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs border',
+                      csvResult.startsWith('✓')
+                        ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                        : 'bg-red-500/10 border-red-500/25 text-red-400'
+                    )}
+                  >
+                    {csvResult.startsWith('✓') ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>{csvResult.replace(/^[✓✗]\s*/, '')}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Transaction Entry Card */}
+              <div className="rounded-xl bg-card border border-border p-5">
+                <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-4">
+                  <Plus className="w-4 h-4 text-primary" />
+                  Add Transaction Manually
+                </h2>
+                <form onSubmit={handleIngest} className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">
+                      From Account
+                    </label>
+                    <input
+                      required
+                      placeholder="e.g. MULE-A"
+                      value={form.fromAccount}
+                      onChange={(e) => setForm((p) => ({ ...p, fromAccount: e.target.value }))}
+                      className="w-full bg-secondary/60 text-foreground text-sm rounded-xl px-3.5 py-2.5 placeholder:text-muted-foreground/50 border border-border focus:outline-none focus:border-primary/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">
+                      To Account
+                    </label>
+                    <input
+                      required
+                      placeholder="e.g. MULE-B"
+                      value={form.toAccount}
+                      onChange={(e) => setForm((p) => ({ ...p, toAccount: e.target.value }))}
+                      className="w-full bg-secondary/60 text-foreground text-sm rounded-xl px-3.5 py-2.5 placeholder:text-muted-foreground/50 border border-border focus:outline-none focus:border-primary/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">
+                      Amount (USD)
+                    </label>
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="25000.00"
+                      value={form.amount}
+                      onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                      className="w-full bg-secondary/60 text-foreground text-sm rounded-xl px-3.5 py-2.5 placeholder:text-muted-foreground/50 border border-border focus:outline-none focus:border-primary/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1.5 block">
+                      Transfer Date
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      value={form.date}
+                      onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                      className="w-full bg-secondary/60 text-foreground text-sm rounded-xl px-3.5 py-2.5 border border-border focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={ingesting}
+                      className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors shadow-sm shadow-primary/15"
+                    >
+                      <Plus className="w-4 h-4" />
+                      {ingesting ? 'Adding Transaction…' : 'Add Transaction'}
+                    </button>
+                  </div>
+                </form>
+
+                {ingestMsg && (
+                  <p
+                    className={cn(
+                      'text-xs mt-3 flex items-center gap-1.5',
+                      ingestMsg.startsWith('✓') ? 'text-emerald-400' : 'text-red-400'
+                    )}
+                  >
+                    {ingestMsg}
+                  </p>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -505,116 +844,160 @@ export function FraudGraph({ className }: { className?: string }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.18 }}
+            className="rounded-xl bg-card border border-border p-5 flex flex-col gap-4"
           >
-            {/* Search bar */}
-            <div className="flex gap-2 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLoadGraph()}
-                  placeholder="Enter account ID…"
-                  className="w-full bg-gray-800 text-white text-sm rounded-lg pl-9 pr-4 py-2.5 border border-gray-600 focus:outline-none focus:border-indigo-500 placeholder-gray-500"
-                />
+            {/* Search bar + quick account chips */}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    value={accountId}
+                    onChange={(e) => setAccountId(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleLoadGraph()}
+                    placeholder="Enter account ID (e.g. MULE-A, HUB-9)…"
+                    className="w-full bg-secondary/60 text-foreground text-sm rounded-xl pl-10 pr-4 py-2.5 border border-border focus:outline-none focus:border-primary/50 placeholder:text-muted-foreground/50 font-mono"
+                  />
+                </div>
+                <button
+                  onClick={handleLoadGraph}
+                  disabled={graphLoading || !accountId.trim()}
+                  className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shrink-0"
+                >
+                  <Network className="w-4 h-4" />
+                  {graphLoading ? 'Loading…' : 'Load Graph'}
+                </button>
               </div>
-              <button
-                onClick={handleLoadGraph}
-                disabled={graphLoading || !accountId.trim()}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <Network className="w-4 h-4" />
-                {graphLoading ? 'Loading…' : 'Load Graph'}
-              </button>
+
+              {sampleAccounts.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground mr-1">Flagged accounts:</span>
+                  {sampleAccounts.map((acc) => (
+                    <button
+                      key={acc}
+                      onClick={() => inspectAccount(acc)}
+                      className={cn(
+                        'px-2.5 py-0.5 rounded-full font-mono text-[11px] border transition-colors',
+                        highlightNode === acc
+                          ? 'bg-primary/15 text-primary border-primary/40'
+                          : 'bg-secondary/60 text-muted-foreground border-border hover:text-foreground'
+                      )}
+                    >
+                      {acc}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {graphError && (
-              <p className="text-red-400 text-sm mb-3">{graphError}</p>
-            )}
-
-            {/* Graph hint */}
-            {graphData && (
-              <p className="text-gray-500 text-xs mb-2 flex items-center gap-1.5">
-                <ZoomIn className="w-3.5 h-3.5" />
-                Scroll to zoom · Click a node to drill down
-              </p>
-            )}
-
-            {/* Force Graph */}
-            {graphData ? (
-              <div className="bg-gray-950 rounded-xl border border-gray-700 overflow-hidden">
-                <ForceGraph2D
-                  graphData={graphData}
-                  width={600}
-                  height={420}
-                  backgroundColor="#030712"
-                  nodeLabel={(node: any) => node.label ?? node.id}
-                  nodeColor={(node: any) =>
-                    node.id === highlightNode ? '#6366f1' : '#64748b'
-                  }
-                  nodeRelSize={5}
-                  linkColor={() => '#374151'}
-                  linkDirectionalArrowLength={4}
-                  linkDirectionalArrowRelPos={1}
-                  linkLabel={(link: any) =>
-                    `$${Number(link.amount).toLocaleString()}`
-                  }
-                  linkWidth={1.5}
-                  onNodeClick={handleNodeClick}
-                  nodeCanvasObject={(node: any, ctx: any, globalScale: any) => {
-                    const isHighlight = node.id === highlightNode;
-                    const r = isHighlight ? 7 : 5;
-                    ctx.beginPath();
-                    ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-                    ctx.fillStyle = isHighlight ? '#6366f1' : '#475569';
-                    ctx.fill();
-                    if (isHighlight) {
-                      ctx.strokeStyle = '#a5b4fc';
-                      ctx.lineWidth = 2;
-                      ctx.stroke();
-                    }
-                    if (globalScale > 1.5) {
-                      const label = node.id as string;
-                      ctx.font = `${10 / globalScale}px sans-serif`;
-                      ctx.fillStyle = '#e2e8f0';
-                      ctx.textAlign = 'center';
-                      ctx.fillText(label, node.x, node.y + r + 4 / globalScale);
-                    }
-                  }}
-                />
+              <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/25 px-3.5 py-2.5 text-xs text-red-400">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{graphError}</span>
               </div>
-            ) : (
-              !graphLoading && (
-                <div className="h-48 flex items-center justify-center bg-gray-800 rounded-xl border border-dashed border-gray-700">
-                  <p className="text-gray-500 text-sm">
-                    Enter an account ID to visualize its transaction network
+            )}
+
+            {/* Graph Canvas */}
+            <div ref={graphContainerRef} className="w-full">
+              {graphLoading ? (
+                <div className="h-[460px] flex flex-col items-center justify-center gap-3 rounded-xl bg-background border border-border">
+                  <RefreshCw className="w-6 h-6 text-primary animate-spin" />
+                  <p className="text-xs text-muted-foreground">Mapping transaction subgraph…</p>
+                </div>
+              ) : graphData ? (
+                <div className="relative bg-background rounded-xl border border-border overflow-hidden">
+                  {/* Overlay Controls & Legend */}
+                  <div className="absolute top-3 left-3 z-10 flex items-center gap-3 px-3 py-1.5 rounded-lg bg-card/90 backdrop-blur border border-border text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#bef264]" />
+                      Focus Node
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                      Counterparty
+                    </span>
+                    <span className="hidden sm:flex items-center gap-1 border-l border-border pl-3">
+                      <ZoomIn className="w-3.5 h-3.5" />
+                      Scroll to zoom · Click node to pivot
+                    </span>
+                  </div>
+
+                  <ForceGraph2D
+                    graphData={graphData}
+                    width={graphWidth}
+                    height={480}
+                    backgroundColor="#0A0A0A"
+                    nodeLabel={(node: GraphCanvasNode) => node.label ?? node.id}
+                    nodeColor={(node: GraphCanvasNode) =>
+                      node.id === highlightNode ? '#bef264' : '#64748b'
+                    }
+                    nodeRelSize={5}
+                    linkColor={() => 'rgba(255,255,255,0.18)'}
+                    linkDirectionalArrowLength={4.5}
+                    linkDirectionalArrowRelPos={1}
+                    linkLabel={(link: GraphEdge) =>
+                      `$${Number(link.amount).toLocaleString()}`
+                    }
+                    linkWidth={1.5}
+                    onNodeClick={handleNodeClick}
+                    nodeCanvasObject={(
+                      node: GraphCanvasNode,
+                      ctx: CanvasRenderingContext2D,
+                      globalScale: number
+                    ) => {
+                      const x = node.x ?? 0;
+                      const y = node.y ?? 0;
+                      const isHighlight = node.id === highlightNode;
+                      const r = isHighlight ? 7 : 5;
+                      ctx.beginPath();
+                      ctx.arc(x, y, r, 0, 2 * Math.PI);
+                      ctx.fillStyle = isHighlight ? '#bef264' : '#475569';
+                      ctx.fill();
+                      if (isHighlight) {
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                      }
+                      if (globalScale > 1.2) {
+                        const label = node.id;
+                        ctx.font = `${11 / globalScale}px monospace`;
+                        ctx.fillStyle = isHighlight ? '#bef264' : '#e2e8f0';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(label, x, y + r + 5 / globalScale);
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="h-[380px] flex flex-col items-center justify-center text-center px-6 bg-secondary/10 rounded-xl border border-dashed border-border">
+                  <div className="h-12 w-12 rounded-2xl bg-secondary/60 border border-border flex items-center justify-center mb-3">
+                    <Network className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    Account Network Visualizer
+                  </h3>
+                  <p className="text-xs text-muted-foreground max-w-sm mt-1.5">
+                    Search any account ID above or click an account badge in the Detect Rings tab to explore incoming and outgoing transfer hops.
                   </p>
                 </div>
-              )
-            )}
+              )}
+            </div>
 
-            {graphLoading && (
-              <div className="h-48 flex items-center justify-center">
-                <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin" />
-              </div>
-            )}
-
-            {/* Stats */}
+            {/* Stats Footer */}
             {graphData && (
-              <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                <span>
-                  <span className="text-white font-semibold">
-                    {graphData.nodes.length}
-                  </span>{' '}
-                  accounts
-                </span>
-                <span>
-                  <span className="text-white font-semibold">
-                    {graphData.links.length}
-                  </span>{' '}
-                  transactions
-                </span>
+              <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
+                <div className="flex gap-5">
+                  <span>
+                    <span className="text-foreground font-semibold">{graphData.nodes.length}</span>{' '}
+                    connected accounts
+                  </span>
+                  <span>
+                    <span className="text-foreground font-semibold">{graphData.links.length}</span>{' '}
+                    directed transfers
+                  </span>
+                </div>
+                <span className="font-mono text-primary">Focus: {highlightNode}</span>
               </div>
             )}
           </motion.div>
