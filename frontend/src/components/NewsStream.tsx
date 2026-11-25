@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, WS_URL } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { Globe, RefreshCw } from 'lucide-react';
+import { Globe, RefreshCw, Sparkles } from 'lucide-react';
 
 export function NewsStream({ className }: { className?: string }) {
   const [news, setNews] = useState<any[]>([]);
@@ -11,6 +11,8 @@ export function NewsStream({ className }: { className?: string }) {
   const [summaryAsset, setSummaryAsset] = useState('');
   const [summaryData, setSummaryData] = useState<any>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [analyzingRecent, setAnalyzingRecent] = useState(false);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [sentimentStats, setSentimentStats] = useState({ pos: 0, neu: 0, neg: 0 });
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export function NewsStream({ className }: { className?: string }) {
 
     // WebSocket connect
     const ws = new WebSocket(WS_URL);
-    
+
     ws.onopen = () => {
       setWsStatus('Connected');
       ws.send(JSON.stringify({ type: 'subscribe', channel: 'news' }));
@@ -34,7 +36,6 @@ export function NewsStream({ className }: { className?: string }) {
         if (payload.type === 'initial_news' || payload.type === 'news_update') {
           if (Array.isArray(payload.data)) {
             setNews(prev => {
-              // Very simple deduplication by URL (assuming top of array is newest)
               const existingUrls = new Set(prev.map(n => n.url));
               const newItems = payload.data.filter((n: any) => !existingUrls.has(n.url));
               return [...newItems, ...prev].slice(0, 50);
@@ -70,9 +71,40 @@ export function NewsStream({ className }: { className?: string }) {
     try {
       await api.triggerNewsFetch();
       const data = await api.getNews();
-      setNews(data);
+      if (Array.isArray(data)) setNews(data);
+      else if (data && Array.isArray(data.data)) setNews(data.data);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleAnalyzeRecent = async () => {
+    setAnalyzingRecent(true);
+    try {
+      const res = await api.analyzeRecentNewsSentiment();
+      if (res?.success && Array.isArray(res.data)) {
+        const updatedMap = new Map(res.data.map((a: any) => [a.id, a]));
+        setNews(prev => prev.map(item => updatedMap.get(item.id) || item));
+      }
+    } catch (e) {
+      console.error('Failed to analyze recent news sentiment:', e);
+    } finally {
+      setAnalyzingRecent(false);
+    }
+  };
+
+  const handleAnalyzeSingle = async (id: string) => {
+    if (!id || analyzingId) return;
+    setAnalyzingId(id);
+    try {
+      const res = await api.analyzeNewsSentiment(id);
+      if (res?.success && res.data) {
+        setNews(prev => prev.map(item => (item.id === id ? res.data : item)));
+      }
+    } catch (e) {
+      console.error('Failed to analyze article sentiment:', e);
+    } finally {
+      setAnalyzingId(null);
     }
   };
 
@@ -83,7 +115,6 @@ export function NewsStream({ className }: { className?: string }) {
     if (!news.length) return { pos: 0, neu: 0, neg: 0 };
     let pos = 0, neu = 0, neg = 0;
     news.forEach(item => {
-      // Backend uses nested object for sentiment in WebSocket stream, but REST might be flat. Let's check both.
       const sent = item.sentiment?.label || item.sentiment;
       if (sent === 'positive') pos++;
       else if (sent === 'negative') neg++;
@@ -104,7 +135,15 @@ export function NewsStream({ className }: { className?: string }) {
         <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
           <Globe size={18} className="text-primary" /> Global Market News
         </h3>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleAnalyzeRecent}
+            disabled={analyzingRecent || news.length === 0}
+            className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+          >
+            <Sparkles size={12} className={analyzingRecent ? 'animate-spin' : ''} />
+            {analyzingRecent ? 'Analyzing Latest 10...' : 'Do Sentiment Analysis (Top 10)'}
+          </button>
           <button onClick={handleForceFetch} className="flex items-center gap-2 text-[10px] uppercase font-bold tracking-wider bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded text-foreground transition-colors">
             <RefreshCw size={12} /> Force Fetch
           </button>
@@ -126,74 +165,92 @@ export function NewsStream({ className }: { className?: string }) {
             <div style={{ width: `${stats.neg}%` }} className="bg-red-500" title={`Negative: ${stats.neg.toFixed(1)}%`} />
           </div>
         </div>
-        
+
         <form onSubmit={async (e) => {
           e.preventDefault();
           if (!summaryAsset.trim()) {
-             setSummaryData(null);
-             return;
+            setSummaryData(null);
+            return;
           }
           setLoadingSummary(true);
           try {
             const sum = await api.getNewsSummary(summaryAsset);
-            setSummaryData(sum);
+            setSummaryData(sum?.data || sum);
           } catch (err) {
             console.error(err);
           } finally {
             setLoadingSummary(false);
           }
         }} className="flex flex-col sm:flex-row gap-3">
-          <input 
-            type="text" 
-            placeholder="Asset Summary (e.g. BTC)" 
+          <input
+            type="text"
+            placeholder="Asset Summary (e.g. BTC)"
             value={summaryAsset}
             onChange={e => setSummaryAsset(e.target.value)}
-            className="flex-1 rounded-xl bg-secondary/50 py-2.5 px-4 text-sm text-foreground outline-none border border-border/50 focus:border-primary/50 transition-all focus:bg-secondary" 
+            className="flex-1 rounded-xl bg-secondary/50 py-2.5 px-4 text-sm text-foreground outline-none border border-border/50 focus:border-primary/50 transition-all focus:bg-secondary"
           />
           <button type="submit" disabled={loadingSummary} className="bg-primary text-primary-foreground hover:bg-primary/90 px-5 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 shadow-sm shadow-primary/20">
             {loadingSummary ? 'Loading...' : 'Get Summary'}
           </button>
         </form>
-        
+
         {summaryData && (
           <div className="mt-3 p-3 bg-secondary/30 border border-border rounded-lg text-xs">
             <div className="flex justify-between items-center mb-1">
-              <span className="font-bold text-foreground">Summary for {summaryData.asset || summaryAsset}</span>
+              <span className="font-bold text-foreground">Summary for {summaryData.assetName || summaryData.asset || summaryAsset}</span>
               <button onClick={() => setSummaryData(null)} className="text-muted-foreground hover:text-foreground">×</button>
             </div>
             <p className="text-muted-foreground">{summaryData.summary || JSON.stringify(summaryData)}</p>
           </div>
         )}
       </div>
-      
+
       <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-3">
         {news.length === 0 ? (
           <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground text-center py-12">Waiting for news stream...</div>
         ) : (
           news.map((item, i) => {
             const sent = item.sentiment?.label || item.sentiment;
+            const isAnalyzingThis = analyzingId === item.id;
             return (
-            <a key={i} href={item.url} target="_blank" rel="noreferrer" className="block group p-4 border border-border rounded-lg bg-secondary/10 hover:bg-secondary/30 transition-colors">
-              <div className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                {item.title}
-              </div>
-              <div className="text-[10px] mt-3 font-bold uppercase tracking-wider flex justify-between items-center">
-                <span className="text-muted-foreground">{item.source}</span>
-                <div className="flex gap-3 items-center">
-                  {sent && (
-                    <span className={cn('px-1.5 py-0.5 rounded', 
-                      sent === 'positive' ? 'text-green-500' : 
-                      sent === 'negative' ? 'text-red-500' : 
-                      'text-gray-400'
-                    )}>
-                      {sent}
-                    </span>
-                  )}
-                  <span className="text-muted-foreground">{new Date(item.published_at || item.publishedAt || Date.now()).toLocaleTimeString()}</span>
+              <div key={item.id || item.url || i} className="group p-4 border border-border rounded-lg bg-secondary/10 hover:bg-secondary/30 transition-colors">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 block"
+                >
+                  {item.title}
+                </a>
+                <div className="text-[10px] mt-3 font-bold uppercase tracking-wider flex flex-wrap justify-between items-center gap-2">
+                  <span className="text-muted-foreground">{item.source}</span>
+                  <div className="flex gap-3 items-center">
+                    {sent && (
+                      <span className={cn('px-1.5 py-0.5 rounded',
+                        sent === 'positive' ? 'text-green-500 bg-green-500/10' :
+                        sent === 'negative' ? 'text-red-500 bg-red-500/10' :
+                        'text-gray-400 bg-secondary/40'
+                      )}>
+                        {sent}
+                      </span>
+                    )}
+                    {item.id && (
+                      <button
+                        type="button"
+                        onClick={() => handleAnalyzeSingle(item.id)}
+                        disabled={isAnalyzingThis || analyzingRecent}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded bg-secondary hover:bg-primary hover:text-primary-foreground text-foreground transition-colors disabled:opacity-50"
+                      >
+                        <Sparkles size={10} className={isAnalyzingThis ? 'animate-spin' : ''} />
+                        {isAnalyzingThis ? 'Analyzing...' : 'Analyze'}
+                      </button>
+                    )}
+                    <span className="text-muted-foreground">{new Date(item.published_at || item.publishedAt || Date.now()).toLocaleTimeString()}</span>
+                  </div>
                 </div>
               </div>
-            </a>
-          )})
+            );
+          })
         )}
       </div>
     </div>

@@ -10,6 +10,10 @@ import {
   BarChart2,
   Calculator,
   ShieldAlert,
+  Scale,
+  Radar,
+  Network,
+  Mic,
   Copy,
   Check,
   ArrowRight,
@@ -44,11 +48,43 @@ const features = [
   {
     icon: <Globe className="w-4 h-4" />,
     title: "Global News Stream",
-    subtitle: "FinBERT Sentiment",
+    subtitle: "On-Demand FinBERT Sentiment",
     description:
-      "Live WebSocket news with automatic macro sentiment analysis (Positive vs Neutral vs Negative) powered by FinBERT NLP model.",
+      "Live RSS & WebSocket news stream with on-demand FinBERT sentiment scoring (single article or latest 10 batch) hosted on Hugging Face Gradio Spaces.",
     image: "/news.png",
-    tag: "WebSocket",
+    tag: "WebSocket + NLP",
+  },
+  {
+    icon: <Scale className="w-4 h-4" />,
+    title: "Bull vs Bear AI Debate",
+    subtitle: "Multi-Agent Synthesis",
+    description:
+      "Pits Bull and Bear AI analysts against live Yahoo Finance fundamentals and SEC EDGAR filings, with an impartial Judge delivering the final verdict.",
+    tag: "Multi-Agent",
+  },
+  {
+    icon: <Radar className="w-4 h-4" />,
+    title: "Insider Cluster Radar",
+    subtitle: "SEC Form 4 Tracking",
+    description:
+      "Scans live SEC EDGAR Form 4 filings for open-market purchases and flags high-conviction clusters when 2+ insiders buy within 7 days.",
+    tag: "SEC EDGAR",
+  },
+  {
+    icon: <Network className="w-4 h-4" />,
+    title: "Money Mule Ring Detector",
+    subtitle: "Graph Fraud Engine",
+    description:
+      "Ingests CSV or JSON transaction flows into Graphology to detect circular money-mule rings, fan-in/fan-out structuring, and risk scores interactively.",
+    tag: "Graph ML",
+  },
+  {
+    icon: <Mic className="w-4 h-4" />,
+    title: "Earnings Call Stress",
+    subtitle: "Whisper + Linguistic Signals",
+    description:
+      "Transcribes earnings call audio with Groq Whisper, counts hedging & self-correction signals, scores executive stress, and correlates T+1/T+5 price moves.",
+    tag: "Audio AI",
   },
   {
     icon: <Cpu className="w-4 h-4" />,
@@ -117,16 +153,16 @@ const steps = [
     code: "git clone https://github.com/punyajain1/Beacon.git",
   },
   {
-    title: "Setup Backend",
-    code: "cd backend\nnpm install\n# Setup .env with DATABASE_URL, QWEN_API_KEY, etc.\nnpx prisma db push\nnpm run dev",
+    title: "Setup Backend & FinBERT Space",
+    code: "cd backend\nnpm install\n# Set PORT=4000, DATABASE_URL, GROQ_API_KEY,\n# and FINBERT_GRADIO_URL (from finbret/ HF Space)\nnpx prisma db push\nnpm run dev",
   },
   {
     title: "Setup Frontend",
-    code: "cd frontend\nnpm install\n# Setup .env.local if needed\nnpm run dev",
+    code: "cd frontend\nnpm install\nnpm run dev",
   },
   {
     title: "View Dashboard",
-    code: "Navigate to http://localhost:3000\nto view the Beacon Dashboard.",
+    code: "Frontend: http://localhost:3000\nBackend API: http://localhost:4000/api",
   },
 ];
 
@@ -165,6 +201,12 @@ export default function LandingPage() {
             <Link href="#features" className="hidden md:block text-xs text-neutral-400 hover:text-white transition-colors">Features</Link>
             <Link href="#architecture" className="hidden md:block text-xs text-neutral-400 hover:text-white transition-colors">Architecture</Link>
             <Link href="#getting-started" className="hidden md:block text-xs text-neutral-400 hover:text-white transition-colors">Setup</Link>
+            <Link
+              href="/demo"
+              className="text-xs font-medium text-black bg-white hover:bg-neutral-200 px-3 py-1.5 rounded-full transition-all"
+            >
+              Live Demo
+            </Link>
             <Link
               href="https://github.com/punyajain1/Beacon"
               target="_blank"
@@ -222,9 +264,16 @@ export default function LandingPage() {
             className="flex flex-wrap items-center justify-center gap-3 mb-10"
           >
             <Link
+              href="/demo"
+              className="flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-neutral-200 transition-all"
+            >
+              Live Demo
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
               href="https://github.com/punyajain1/Beacon"
               target="_blank"
-              className="flex items-center gap-2 bg-white text-black text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-neutral-200 transition-all"
+              className="flex items-center gap-2 bg-neutral-900 text-white border border-neutral-700 text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-neutral-800 transition-all"
             >
               <GithubIcon className="w-4 h-4" />
               View on GitHub
@@ -276,8 +325,8 @@ export default function LandingPage() {
                 transition={{ duration: 0.35, delay: i * 0.06 }}
                 className="group flex flex-col bg-neutral-950 rounded-2xl border border-neutral-900 hover:border-neutral-700 transition-all overflow-hidden"
               >
-                {/* Screenshot thumbnail */}
-                {feature.image && (
+                {/* Screenshot thumbnail or styled dark visual header */}
+                {feature.image ? (
                   <div className="relative w-full aspect-[16/9] bg-neutral-900 overflow-hidden">
                     <Image
                       src={feature.image}
@@ -286,6 +335,15 @@ export default function LandingPage() {
                       className="object-cover object-top group-hover:scale-105 transition-transform duration-500"
                     />
                     {/* Tag */}
+                    <span className="absolute top-3 right-3 text-[10px] font-bold bg-black/70 backdrop-blur-sm border border-neutral-700 text-neutral-300 px-2 py-0.5 rounded-full">
+                      {feature.tag}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="relative w-full aspect-[16/9] bg-neutral-950 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:24px_24px] border-b border-neutral-900 flex items-center justify-center overflow-hidden">
+                    <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-300 group-hover:scale-110 group-hover:border-neutral-600 transition-all">
+                      {feature.icon}
+                    </div>
                     <span className="absolute top-3 right-3 text-[10px] font-bold bg-black/70 backdrop-blur-sm border border-neutral-700 text-neutral-300 px-2 py-0.5 rounded-full">
                       {feature.tag}
                     </span>
@@ -411,7 +469,7 @@ export default function LandingPage() {
             <p className="text-xs text-neutral-500 uppercase tracking-widest mb-3">Self-host</p>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3">Getting Started</h2>
             <p className="text-neutral-500 text-sm">
-              Prerequisites: Node.js v18+, PostgreSQL, Qwen API Key &amp; HuggingFace token.
+              Prerequisites: Node.js v18+, PostgreSQL, Groq API Key &amp; Hugging Face Gradio Space (FinBERT).
             </p>
           </div>
 

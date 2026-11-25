@@ -43,6 +43,7 @@ export const config = {
     gnews: 'https://gnews.io/api/v4',
     currentsApi: 'https://api.currentsapi.services/v1',
     huggingface: 'https://api-inference.huggingface.co/models',
+    finbertGradio: process.env.FINBERT_GRADIO_URL || '',
   },
 };
 

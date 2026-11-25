@@ -1,4 +1,4 @@
-<h1 align="center">Beacon(Formally Know as Finpilot)</h1>
+<h1 align="center">Beacon Backend</h1>
 
 <div align="center">
   <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js">
@@ -6,155 +6,69 @@
   <img src="https://img.shields.io/badge/Express.js-404D59?style=for-the-badge&logo=express&logoColor=white" alt="Express">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white" alt="Prisma">
-  <img src="https://img.shields.io/badge/GPT--OSS%20120B-412991?style=for-the-badge&logo=openai&logoColor=white" alt="GPT-OSS 120B">
   <img src="https://img.shields.io/badge/Groq%20SDK-f55e5b?style=for-the-badge" alt="Groq SDK">
 </div>
 
 <br>
 
-> **An AI-powered financial adviser backend** built with Node.js, Express, TypeScript, and Groq GPT-OSS 120B (`openai/gpt-oss-120b`). It provides real-time market analysis, portfolio recommendations, and investment guidance specifically tuned for cryptocurrencies and precious metals.
+> **Beacon Backend API** built with Node.js, Express, TypeScript, Prisma, WebSockets, Groq (`qwen/qwen3.8-27b` & `whisper-large-v3`), and Hugging Face Gradio-hosted `ProsusAI/finbert`.
 
 ---
 
-## ⚡ Key Features
+## Key Capabilities
 
-- **📊 Portfolio Management System**
-  - Track, add, update, and remove assets (Cryptocurrencies & Precious Metals).
-  - Automated portfolio analysis running locally every 5 minutes.
-  - Generates AI-powered **Buy / Sell / Hold** recommendations with confidence scoring and risk assessment.
-  
-- **📰 Real-Time News & Sentiment Aggregation**
-  - Multi-source financial news fetching (NewsAPI, GNews, Currents API).
-  - Natural Language Processing (NLP) sentiment analysis using **HuggingFace FinBERT**.
-  - Real-time event streaming to clients via Server-Sent Events (SSE).
-
-- **🤖 Intelligent Financial Chatbot with Time-Based RAG**
-  - Powered by **Groq GPT-OSS 120B** (`openai/gpt-oss-120b`) for ultra-fast, intelligent dialogue turns.
-  - Uses **Time-Based Retrieval-Augmented Generation (RAG)** to dynamically inject the absolute latest database news and portfolio data directly into prompts.
-  - Context-aware conversations with persistent 10-turn sliding session memory.
-  - Real-time portfolio grounding and strict risk disclaimers.
+- **Portfolio & Recommendations (`/api/portfolio`)**: Real-time tracking, deterministic technical indicators (RSI, MACD, Bollinger Bands), and grounded AI recommendations.
+- **On-Demand News & FinBERT Sentiment (`/api/news`)**: Multi-feed RSS + News APIs streamed over `/ws/news`. Sentiment runs on demand for a single article (`POST /api/news/:id/sentiment`) or the 10 most recent articles (`POST /api/news/sentiment/recent`) via `src/models/finbert.model.ts`.
+- **Bull vs Bear AI Debate (`/api/debate`)**: Yahoo Finance + SEC EDGAR grounding with Bull, Bear, and Judge agents.
+- **Insider Cluster Radar (`/api/insider`)**: SEC EDGAR Form 4 XML parser detecting 7-day open-market (`P`) buy clusters (`POST /api/insider/scan`, `GET /api/insider/alerts`, `GET /api/insider/filings`).
+- **Money Mule Ring Detector (`/api/fraud`)**: Graphology cycle/structuring detection on CSV or JSON transactions.
+- **Earnings Call Stress (`/api/earnings`)**: Whisper audio transcription + linguistic stress scoring + T+1/T+5 price tracking.
+- **India Hub, Derivatives & Simulator**: `/api/india`, `/api/derivatives`, `/api/simulation`, `/api/chat`.
 
 ---
 
-## 🏗️ Architecture & Design
-
-This project implements a clean layered architecture, enforcing strict separation of concerns to guarantee robust maintainability and testability.
-
-### 🔄 Data Flow
-
-```mermaid
-graph TD
-    Client((Client)) -->|HTTP Requests| Server[Express Server]
-    
-    subgraph "Application Architecture"
-        Server --> Config["Config / Middleware<br>(ErrorHandler, Validators)"]
-        Config --> Routes["Routing Layer<br>(Express Routers)"]
-        Routes --> Controllers["Controller Layer<br>(Request/Response Handling)"]
-        Controllers --> Services["Service Layer<br>(Core Business Logic)"]
-    end
-    
-    subgraph "Data & External Layers"
-        Services --> ORM[Prisma ORM]
-        ORM --> DB[(PostgreSQL Database)]
-        Services --> ExternalWeb["External APIs<br>(Groq SDK, FinBERT, News, Market Data)"]
-    end
-    
-    style Client fill:#FAFAFA,stroke:#333
-    style Server fill:#f9f9f9,stroke:#666
-    style DB fill:#5E9EE4,stroke:#316192,stroke-width:2px,color:#fff
-    style ORM fill:#e5f1ff,stroke:#3982CE
-```
-
-### 📂 Directory Structure
+## Directory Structure
 
 ```text
 src/
-├── config/         # Environment variables & DB connection setup
-├── controllers/    # Route controllers (req, res handling)
-├── middleware/     # Express middlewares (Validation, Error Handling, Rate Limiting)
-├── routes/         # Express route definitions
-├── services/       # Core business logic (Cache, Chat, Cron, Market, News)
-├── types/          # TypeScript interfaces & type definitions
-└── utils/          # Utility functions and standard loggers
+├── config/         # Env validation & Prisma client
+├── controllers/    # Express route handlers
+├── middleware/     # Validation, rate limiting, error handling
+├── models/         # External ML model clients (finbert.model.ts)
+├── routes/         # REST API routes mounted under /api
+├── services/       # Core services (news, sentiment, debate, insider, fraud, earnings, etc.)
+├── types/          # TypeScript types
+└── utils/          # Winston logger
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## Getting Started
 
-| Category         | Technologies Used |
-|-----------------|-------------------|
-| **Runtime**     | Node.js, TypeScript |
-| **Framework**   | Express.js |
-| **Database**    | PostgreSQL, Prisma ORM |
-| **AI / ML**     | Groq GPT-OSS 120B (Agent/Chat), HuggingFace FinBERT (Sentiment) |
-| **External APIs**| CoinGecko (Crypto), Gold API (Metals), NewsAPI/GNews (News) |
-| **Tooling**     | Winston (Logging), Node-Cache (Caching), Express-Validator |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-Ensure you have the following installed on your local machine:
-- **Node.js** (v18 or higher)
-- **PostgreSQL** running locally or via a cloud provider.
-
-### Installation
-
-1. **Clone the repository**
+1. **Install dependencies**
    ```bash
-   git clone <repository-url>
-   cd financial-advisory-backend # Or your respective directory
-   ```
-
-2. **Install dependencies**
-   ```bash
+   cd backend
    npm install
    ```
 
-3. **Configure Environment Variables**
-   Copy the example config to configure your local keys. Look inside the `.env.example` file for detailed instructions on acquiring required API keys.
+2. **Configure environment variables**
    ```bash
    cp .env.example .env
    ```
+   Set at minimum:
+   - `PORT=4000`
+   - `DATABASE_URL` (PostgreSQL connection string)
+   - `GROQ_API_KEY`
+   - `FINBERT_GRADIO_URL` (e.g. `Punya01/finbret` or `https://your-space.hf.space`)
 
-4. **Initialize Database**
-   Generate the Prisma Client and run migrations to build your SQL schema.
+3. **Push Prisma schema & generate client**
    ```bash
    npx prisma generate
-   npx prisma migrate dev
+   npx prisma db push
    ```
 
-5. **Start the Server**
+4. **Run development server**
    ```bash
    npm run dev
    ```
-   *The server will start on `http://localhost:3000`*
-
----
-
-## 📖 API Documentation
-
-The REST API is structurally grouped into the following domains:
-
-- **Health:** `/api/health` - Basic ping endpoint.
-- **Portfolio:** `/api/portfolio/*` - CRUD operations, automated recommendations, and targeted asset analysis.
-- **News:** `/api/news/*` - Query articles by asset type/sentiment, access summarized news, and subscribe to SSE streams.
-- **Chat:** `/api/chat/*` - Interact with the AI Adviser and fetch contextual conversation histories.
-
-*(For detailed Request/Response schemas, refer to the Postman collection or code validators).*
-
----
-
-## 🗄️ Database Schema Summary
-
-- **Portfolio (`assets`)**: Tracks individual user holdings, symbols, types, and amounts.
-- **Recommendations (`recommendations`)**: AI trading indicators (BUY/SELL/HOLD), reasoning text, confidence scores, technicals, and risk levels.
-- **News (`news_articles`)**: Cached articles with FinBERT-scored sentiment, relevance filtering, and source origin.
-- **Chat History (`chat_messages`)**: AI agent dialogues linked to a conversation UUID to preserve context over sessions.
-
----
-
-*Built for advanced automated financial insights. Disclaimer: Not actual certified financial advice.*
+   Server runs at `http://localhost:4000` (REST at `/api`, WebSocket at `/ws/news`).

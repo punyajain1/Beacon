@@ -82,6 +82,8 @@ export const api = {
     return fetch(url).then(res => res.json());
   },
   triggerNewsFetch: () => fetch(`${API_BASE}/news/trigger-fetch`, { method: 'POST' }).then(res => res.json()),
+  analyzeNewsSentiment: (id: string) => fetch(`${API_BASE}/news/${id}/sentiment`, { method: 'POST' }).then(res => res.json()),
+  analyzeRecentNewsSentiment: () => fetch(`${API_BASE}/news/sentiment/recent`, { method: 'POST' }).then(res => res.json()),
   
   // Analysis & Recommendations
   getAnalysis: (id: string) => fetch(`${API_BASE}/portfolio/${id}/analysis`).then(res => res.json()),

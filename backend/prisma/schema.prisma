@@ -113,3 +113,115 @@ model PortfolioAnalysis {
   
   @@index([portfolioId])
 }
+
+// ─── Feature 1: Bull vs Bear AI Debate ───────────────────────────────────────
+
+model StockDebate {
+  id         String   @id @default(uuid())
+  ticker     String
+  bullArg    String   @db.Text
+  bearArg    String   @db.Text
+  verdict    String   @db.Text
+  winner     String   // "BULL" | "BEAR" | "DRAW"
+  stockPrice Float
+  sources    String[]
+  createdAt  DateTime @default(now())
+
+  @@index([ticker])
+  @@index([createdAt])
+}
+
+// ─── Feature 3: Insider Cluster-Buy Radar ────────────────────────────────────
+
+model InsiderFiling {
+  id                 String   @id @default(uuid())
+  secAccessionNumber String   @unique
+  ticker             String
+  company            String
+  insiderName        String
+  insiderRole        String
+  transactionCode    String   // P=Purchase, S=Sale
+  shares             Float
+  pricePerShare      Float
+  totalValue         Float
+  filingDate         DateTime
+  createdAt          DateTime @default(now())
+
+  @@index([ticker])
+  @@index([filingDate])
+  @@index([transactionCode])
+}
+
+model InsiderAlert {
+  id           String   @id @default(uuid())
+  ticker       String
+  company      String
+  insiderCount Int
+  totalValue   Float
+  windowDays   Int      @default(7)
+  seen         Boolean  @default(false)
+  filings      Json
+  clusterDate  DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([ticker])
+  @@index([clusterDate])
+  @@index([seen])
+}
+
+// ─── Feature 4: Money Mule Ring Detector ─────────────────────────────────────
+
+model Transaction {
+  id          String   @id @default(uuid())
+  fromAccount String
+  toAccount   String
+  amount      Float
+  currency    String   @default("USD")
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([fromAccount])
+  @@index([toAccount])
+  @@index([date])
+}
+
+model FraudRing {
+  id         String   @id @default(uuid())
+  nodes      String[]
+  edges      Json
+  riskScore  Float
+  totalMoved Float
+  status     String   @default("OPEN")
+  detectedAt DateTime @default(now())
+
+  @@index([riskScore])
+  @@index([status])
+}
+
+// ─── Feature 5: Earnings Call Stress Detector ────────────────────────────────
+
+model EarningsCall {
+  id              String   @id @default(uuid())
+  ticker          String
+  company         String?
+  callDate        DateTime
+  audioUrl        String?
+  transcript      String   @db.Text
+  stressScore     Float
+  sentimentLabel  String
+  sentimentScore  Float
+  hedgeWordCount  Int
+  correctionCount Int
+  stressPassages  Json
+  priceT0         Float?
+  priceT1         Float?
+  priceT5         Float?
+  moveT1Pct       Float?
+  moveT5Pct       Float?
+  createdAt       DateTime @default(now())
+
+  @@index([ticker])
+  @@index([callDate])
+  @@index([stressScore])
+}

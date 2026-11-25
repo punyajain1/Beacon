@@ -204,4 +204,71 @@ export const triggerNewsFetch = async (req: Request, res: Response) => {
   })();
 };
 
+async function broadcastUpdatedSummary(): Promise<void> {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const recentNews = await prisma.news.findMany({
+    where: { createdAt: { gte: yesterday } },
+  });
+
+  websocketService.broadcastNewsSummary({
+    totalArticles: recentNews.length,
+    cryptoNews: recentNews.filter(n => n.assetType === 'CRYPTO').length,
+    metalNews: recentNews.filter(n => n.assetType === 'METAL').length,
+    sentimentBreakdown: {
+      positive: recentNews.filter(n => n.sentimentLabel === 'positive').length,
+      negative: recentNews.filter(n => n.sentimentLabel === 'negative').length,
+      neutral: recentNews.filter(n => n.sentimentLabel === 'neutral').length,
+    },
+    topAssets: [],
+  });
+}
+
+export const analyzeSingleSentiment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const updated = await newsService.analyzeArticleSentiment(id);
+
+    if (!updated) {
+      res.status(404).json({
+        success: false,
+        error: 'News article not found',
+      });
+      return;
+    }
+
+    await broadcastUpdatedSummary();
+    res.json({
+      success: true,
+      data: updated,
+    });
+  } catch (error) {
+    logger.error('Analyze single news sentiment error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze sentiment for article',
+    });
+  }
+};
+
+export const analyzeRecentSentiment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const updated = await newsService.analyzeRecentNewsSentiment(10);
+    await broadcastUpdatedSummary();
+
+    res.json({
+      success: true,
+      data: updated,
+      count: updated.length,
+    });
+  } catch (error) {
+    logger.error('Analyze recent news sentiment error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze sentiment for recent news',
+    });
+  }
+};
+
 

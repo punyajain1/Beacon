@@ -226,6 +226,24 @@ class WebSocketService {
   }
 
   /**
+   * Broadcast insider cluster-buy alert
+   */
+  broadcastInsiderAlert(alert: any): void {
+    if (!this.wss) {
+      return;
+    }
+
+    const message = {
+      type: 'insider_alert',
+      timestamp: new Date().toISOString(),
+      data: alert,
+    };
+
+    this.broadcast(message);
+    logger.info(`Broadcasted insider alert for ${alert.ticker} via WebSocket`);
+  }
+
+  /**
    * Send message to a specific client
    */
   private sendToClient(client: WebSocket, data: any): void {

@@ -4,6 +4,8 @@ import {
   getNewsSummary,
   newsStream,
   triggerNewsFetch,
+  analyzeSingleSentiment,
+  analyzeRecentSentiment,
 } from '../controllers/news.controller';
 import { getNewsValidation } from '../middleware/validators';
 import { asyncHandler } from '../middleware/errorHandler';
@@ -14,5 +16,7 @@ router.get('/', getNewsValidation, asyncHandler(getNews));
 router.get('/summary/:assetName', asyncHandler(getNewsSummary));
 router.get('/stream', newsStream);
 router.post('/trigger-fetch', asyncHandler(triggerNewsFetch));
+router.post('/sentiment/recent', asyncHandler(analyzeRecentSentiment));
+router.post('/:id/sentiment', asyncHandler(analyzeSingleSentiment));
 
 export default router;

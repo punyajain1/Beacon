@@ -4,6 +4,7 @@ import portfolioService from './portfolio.service';
 import newsService from './news.service';
 import cacheService from './cache.service';
 import websocketService from './websocket.service';
+import insiderService from './insider.service';
 import prisma from '../config/database';
 
 /**
@@ -24,6 +25,21 @@ class CronJobsService {
       await this.fetchAllNews();
     });
     this.scheduledTasks.push(newsJob);
+
+    // Scan SEC Form 4 insider cluster buys every 15 minutes (only when clients are connected)
+    const insiderJob = cron.schedule('*/15 * * * *', async () => {
+      if (websocketService.getClientCount() === 0) {
+        logger.debug('Skipping insider scan: Standby mode (No active clients connected)');
+        return;
+      }
+      logger.info('Running SEC Form 4 insider cluster scan...');
+      try {
+        await insiderService.scanInsiderFilings();
+      } catch (err) {
+        logger.error('Error during insider filings scan:', err);
+      }
+    });
+    this.scheduledTasks.push(insiderJob);
 
     // Clean expired cache daily at midnight
     const cacheJob = cron.schedule('0 0 * * *', async () => {

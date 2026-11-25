@@ -17,10 +17,10 @@ const nodes = [
   { id: "express", label: ["Express Node.js", "Server"], x: 600, y: 330, w: 160, h: 60 },
   { id: "math", label: ["Deterministic", "Math Engine"], x: 600, y: 470, w: 180, h: 60 },
   { id: "db", label: ["PostgreSQL +", "Prisma"], x: 140, y: 760, w: 160, h: 60 },
-  { id: "crypto", label: ["Binance /", "CoinGecko /", "DexScreener"], x: 400, y: 760, w: 160, h: 80 },
+  { id: "crypto", label: ["Binance /", "Yahoo Finance /", "SEC EDGAR"], x: 400, y: 760, w: 160, h: 80 },
   { id: "news", label: ["RSS / Global", "News APIs"], x: 620, y: 760, w: 160, h: 80 },
-  { id: "nlp", label: ["HuggingFace", "FinBERT - NLP"], x: 880, y: 760, w: 160, h: 80 },
-  { id: "llm", label: ["Qwen", "qwen3.8-27b - LLM"], x: 1080, y: 760, w: 160, h: 80 },
+  { id: "nlp", label: ["HF Gradio Space", "FinBERT - NLP"], x: 880, y: 760, w: 160, h: 80 },
+  { id: "llm", label: ["Groq", "qwen3.8-27b &", "Whisper v3"], x: 1080, y: 760, w: 160, h: 80 },
 ];
 
 const edges = [

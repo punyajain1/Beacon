@@ -7,6 +7,10 @@ import marketRoutes from './market.routes';
 import simulationRoutes from './simulation.routes';
 import indiaRoutes from './india.routes';
 import derivativesRoutes from './derivatives.routes';
+import fraudRoutes from './fraud.routes';
+import insiderRoutes from './insider.routes';
+import debateRoutes from './debate.routes';
+import earningsRoutes from './earnings.routes';
 
 const router = Router();
 
@@ -26,5 +30,9 @@ router.use('/market', marketRoutes);
 router.use('/simulation', simulationRoutes);
 router.use('/india', indiaRoutes);
 router.use('/derivatives', derivativesRoutes);
+router.use('/insider', insiderRoutes);
+router.use('/debate', debateRoutes);
+router.use('/fraud', fraudRoutes);
+router.use('/earnings', earningsRoutes);
 
 export default router;

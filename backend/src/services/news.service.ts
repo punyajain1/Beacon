@@ -72,7 +72,8 @@ class NewsService {
   private paidApiLockoutUntil: Date | null = null;
 
   /**
-   * Fetch news for specific assets
+   * Fetch news for specific assets (without auto-running sentiment analysis).
+   * Sentiment is analyzed on-demand for a specific article or the 10 most recent articles.
    */
   async fetchNewsForAssets(assets: string[], assetType: AssetType): Promise<NewsArticle[]> {
     const allRawNews: NewsArticle[] = [];
@@ -84,28 +85,33 @@ class NewsService {
 
     // Deduplicate based on URL
     const uniqueNews = this.deduplicateNews(allRawNews);
+    if (uniqueNews.length === 0) return [];
 
-    // Find existing articles in DB by URL
     const urls = uniqueNews.map(n => n.url);
     const existingArticlesDB = await prisma.news.findMany({
-      where: { url: { in: urls } }
+      where: { url: { in: urls } },
+      select: { url: true },
     });
-    
+
     const existingUrls = new Set(existingArticlesDB.map(a => a.url));
-    
-    // Separate new vs existing
     const newArticles = uniqueNews.filter(n => !existingUrls.has(n.url));
-    
-    // Analyze sentiment only for new articles
-    let analyzedNewArticles: NewsArticle[] = [];
+
     if (newArticles.length > 0) {
-      logger.debug(`Found ${newArticles.length} new articles to analyze for sentiment.`);
-      analyzedNewArticles = await this.enrichWithSentiment(newArticles);
-      await this.storeNewArticles(analyzedNewArticles);
+      logger.debug(`Storing ${newArticles.length} new articles without automatic sentiment analysis.`);
+      await this.storeNewArticles(newArticles);
     }
 
-    // Map DB articles back to NewsArticle interface
-    const existingMapped: NewsArticle[] = existingArticlesDB.map(article => ({
+    // Reload all matching articles from DB so every item carries its database ID
+    const savedArticlesDB = await prisma.news.findMany({
+      where: { url: { in: urls } },
+      orderBy: { publishedAt: 'desc' },
+    });
+
+    return savedArticlesDB.map(article => this.mapDbArticle(article));
+  }
+
+  private mapDbArticle(article: any): NewsArticle {
+    return {
       id: article.id,
       title: article.title,
       description: article.description,
@@ -124,9 +130,7 @@ class NewsService {
       },
       relevanceScore: article.relevanceScore,
       createdAt: article.createdAt,
-    }));
-    
-    return [...existingMapped, ...analyzedNewArticles].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    };
   }
 
   /**
@@ -655,6 +659,79 @@ class NewsService {
     const negCount = sentiments.filter(s => s.label === 'negative').length;
 
     return `Recent news sentiment for ${assetName}: ${aggregated.label.toUpperCase()} (${posCount} positive, ${negCount} negative out of ${articles.length} articles). Overall sentiment score: ${aggregated.score.toFixed(2)}.`;
+  }
+
+  /**
+   * Run on-demand sentiment analysis for a single specific news article by ID.
+   */
+  async analyzeArticleSentiment(newsId: string): Promise<NewsArticle | null> {
+    const article = await prisma.news.findUnique({ where: { id: newsId } });
+    if (!article) {
+      return null;
+    }
+
+    const text = `${article.title}. ${article.description || ''}`;
+    const sentiment = await sentimentService.analyzeSentiment(text);
+
+    const updated = await prisma.news.update({
+      where: { id: newsId },
+      data: {
+        sentimentScore: sentiment.score,
+        sentimentLabel: sentiment.label,
+      },
+    });
+
+    await this.invalidateNewsListCache();
+    return {
+      ...this.mapDbArticle(updated),
+      sentiment,
+    };
+  }
+
+  /**
+   * Run on-demand sentiment analysis on only the most recent N (default 10) news articles.
+   */
+  async analyzeRecentNewsSentiment(limit = 10): Promise<NewsArticle[]> {
+    const recentArticles = await prisma.news.findMany({
+      orderBy: { publishedAt: 'desc' },
+      take: limit,
+    });
+
+    if (recentArticles.length === 0) {
+      return [];
+    }
+
+    const texts = recentArticles.map(a => `${a.title}. ${a.description || ''}`);
+    const sentiments = await sentimentService.analyzeBatchSentiment(texts);
+
+    const updatedRecords = await prisma.$transaction(
+      recentArticles.map((article, idx) => {
+        const sent = sentiments[idx];
+        return prisma.news.update({
+          where: { id: article.id },
+          data: {
+            sentimentScore: sent.score,
+            sentimentLabel: sent.label,
+          },
+        });
+      })
+    );
+
+    await this.invalidateNewsListCache();
+    return updatedRecords.map((record, idx) => ({
+      ...this.mapDbArticle(record),
+      sentiment: sentiments[idx],
+    }));
+  }
+
+  private async invalidateNewsListCache(): Promise<void> {
+    try {
+      await prisma.analysisCache.deleteMany({
+        where: { cacheKey: { startsWith: 'api:news:' } },
+      });
+    } catch (error) {
+      logger.warn('Failed to invalidate news API cache:', error);
+    }
   }
 }
 
